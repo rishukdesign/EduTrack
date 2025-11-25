@@ -99,3 +99,14 @@ public class AcademicRecord
     public int Year { get; set; }
     public string Score { get; set; } = string.Empty;
 }
+
+public class TrainingProgress
+{
+    public int Id { get; set; }
+    public int AssignmentId { get; set; }
+    public DateTime Date { get; set; } = DateTime.Now;
+    [Range(0, 100, ErrorMessage = "Percent must be between 0 and 100")]
+    public int Percent { get; set; }
+    public string Status { get; set; } = string.Empty; // OnTrack, Delayed, Blocked
+    public string Feedback { get; set; } = string.Empty;
+}

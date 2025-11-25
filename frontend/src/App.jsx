@@ -10,6 +10,7 @@ import StudentDetail from './pages/StudentDetail';
 import Reports from './pages/Reports';
 import GenericList from './components/GenericList';
 import Modal from './components/ui/Modal';
+import ConfirmDialog from './components/ui/ConfirmDialog';
 import Input from './components/ui/Input';
 import Select from './components/ui/Select';
 import Checkbox from './components/ui/Checkbox';
@@ -17,50 +18,10 @@ import Button from './components/ui/Button';
 import Badge from './components/ui/Badge';
 import Card from './components/ui/Card';
 
-// Constants & Mock Data
+// Constants
 const ROLES = { ADMIN: 'Admin', FACULTY: 'Faculty', STUDENT: 'Student' };
 
-const INITIAL_USERS = [
-  { id: 1, username: 'admin', password: 'password', role: ROLES.ADMIN, name: 'System Admin', email: 'admin@edutrack.edu', isActive: true },
-  { id: 2, username: 'faculty', password: 'password', role: ROLES.FACULTY, name: 'Dr. Alan Grant', email: 'alan@edutrack.edu', isActive: true },
-  { id: 3, username: 'student', password: 'password', role: ROLES.STUDENT, name: 'Rahul Sharma', email: 'rahul@edutrack.edu', studentId: 101, isActive: true },
-];
-
-const INITIAL_STUDENTS = [
-  { id: 101, rollNo: 'CS-23-001', firstName: 'Rahul', lastName: 'Sharma', email: 'rahul@edutrack.edu', program: 'B.Tech CS', year: 3, phone: '9876543210', isActive: true },
-  { id: 102, rollNo: 'CS-23-002', firstName: 'Priya', lastName: 'Verma', email: 'priya@edutrack.edu', program: 'B.Tech CS', year: 3, phone: '9876543211', isActive: true },
-];
-
-const INITIAL_COMPANIES = [
-  { id: 1, name: 'TechSolutions Inc.', address: '123 Tech Park, Bangalore', contactPerson: 'John Doe', email: 'hr@techsolutions.com' },
-  { id: 2, name: 'DataCorp', address: '45 Data Lane, Hyderabad', contactPerson: 'Jane Smith', email: 'contact@datacorp.com' },
-];
-
-const INITIAL_MENTORS = [
-  { id: 1, companyId: 1, name: 'Sarah Jenkins', email: 'sarah@techsolutions.com', designation: 'Senior Dev', phone: '1234567890' },
-  { id: 2, companyId: 2, name: 'Mike Ross', email: 'mike@datacorp.com', designation: 'Lead Analyst', phone: '0987654321' },
-];
-
-const INITIAL_TRAININGS = [
-  { id: 1, title: 'Full Stack Bootcamp', description: 'Intensive web dev training', startDate: '2023-08-01', endDate: '2023-10-30', status: 'Ongoing' },
-  { id: 2, title: 'Data Science Internship', description: 'Real world data problems', startDate: '2023-09-15', endDate: '2023-12-15', status: 'Upcoming' },
-];
-
-const INITIAL_ASSIGNMENTS = [
-  { id: 1, studentId: 101, trainingId: 1, companyId: 1, mentorId: 1, status: 'InProgress', assignedDate: '2023-09-01', progress: 40, remarks: 'Doing well', score: null },
-  { id: 2, studentId: 101, trainingId: 2, companyId: 2, mentorId: 2, status: 'Assigned', assignedDate: '2023-09-25', progress: 0, remarks: 'Just started', score: null },
-];
-
-const INITIAL_ACADEMICS = [
-  { id: 1, studentId: 101, degree: '12th Grade', institution: 'DPS Delhi', year: 2020, score: '92%' },
-];
-
-const INITIAL_PROGRESS = [
-  { id: 1, assignmentId: 1, date: '2023-09-05', percent: 10, status: 'OnTrack', feedback: 'Started initial setup.' },
-  { id: 2, assignmentId: 1, date: '2023-09-20', percent: 40, status: 'OnTrack', feedback: 'Completed frontend modules.' },
-];
-
-import { getStudents, createStudent, updateStudent, deleteStudent, getAssignments, createAssignment, updateAssignment, deleteAssignment, getTrainings, createTraining, updateTraining, deleteTraining, getCompanies, createCompany, updateCompany, deleteCompany, getMentors, createMentor, updateMentor, deleteMentor, getUsers, createUser, updateUser, deleteUser } from './services/api';
+import { getStudents, createStudent, updateStudent, deleteStudent, getAssignments, createAssignment, updateAssignment, deleteAssignment, getTrainings, createTraining, updateTraining, deleteTraining, getCompanies, createCompany, updateCompany, deleteCompany, getMentors, createMentor, updateMentor, deleteMentor, getUsers, createUser, updateUser, deleteUser, getAcademicRecords, createAcademicRecord, deleteAcademicRecord, getTrainingProgress, createTrainingProgress } from './services/api';
 
 function App() {
   const navigate = useNavigate();
@@ -68,19 +29,20 @@ function App() {
   const [user, setUser] = useState(null);
   // view, selectedStudent, detailInitialTab removed
 
-  // Data State
-  const [users, setUsers] = useState(INITIAL_USERS);
-  const [students, setStudents] = useState([]); // Initialize empty
-  const [companies, setCompanies] = useState(INITIAL_COMPANIES);
-  const [mentors, setMentors] = useState(INITIAL_MENTORS);
-  const [trainings, setTrainings] = useState(INITIAL_TRAININGS);
-  const [assignments, setAssignments] = useState([]); // Initialize empty
-  const [academics, setAcademics] = useState(INITIAL_ACADEMICS);
-  const [progress, setProgress] = useState(INITIAL_PROGRESS);
+  // Data State - All initialized empty, data fetched from backend
+  const [users, setUsers] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [mentors, setMentors] = useState([]);
+  const [trainings, setTrainings] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [academics, setAcademics] = useState([]);
+  const [progress, setProgress] = useState([]);
 
   // Modal State
   const [modalConfig, setModalConfig] = useState({ type: null, isOpen: false, mode: 'create', itemId: null });
   const [formData, setFormData] = useState({});
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   useEffect(() => {
     const storedUser = localStorage.getItem('edutrack_user');
@@ -104,6 +66,10 @@ function App() {
       setMentors(mentorsRes.data);
       const usersRes = await getUsers();
       setUsers(usersRes.data);
+      const academicsRes = await getAcademicRecords();
+      setAcademics(academicsRes.data);
+      const progressRes = await getTrainingProgress();
+      setProgress(progressRes.data);
     } catch (error) {
       console.error("Failed to fetch data", error);
     }
@@ -121,11 +87,34 @@ function App() {
     navigate('/login');
   };
 
-  const handleRegister = (newUser) => {
-    const studentId = Date.now();
-    const userId = studentId + 1;
-    setStudents([...students, { id: studentId, rollNo: `TEMP-${studentId}`, firstName: newUser.name.split(' ')[0], lastName: newUser.name.split(' ')[1] || '', email: newUser.email, program: 'Pending', year: 1, isActive: true }]);
-    setUsers([...users, { id: userId, ...newUser, studentId: studentId, isActive: true }]);
+  const handleRegister = async (newUser) => {
+    try {
+      // Create user first
+      const userResponse = await createUser({
+        username: newUser.email.split('@')[0],
+        password: newUser.password,
+        role: ROLES.STUDENT,
+        name: newUser.name,
+        email: newUser.email,
+        isActive: true
+      });
+
+      // Create corresponding student record
+      await createStudent({
+        rollNo: `TEMP-${Date.now()}`,
+        firstName: newUser.name.split(' ')[0],
+        lastName: newUser.name.split(' ')[1] || '',
+        email: newUser.email,
+        program: 'Pending',
+        year: 1,
+        isActive: true
+      });
+
+      fetchData();
+    } catch (error) {
+      console.error('Registration failed:', error);
+      alert('Registration failed. Please try again.');
+    }
   };
 
   // CRUD Operations
@@ -203,45 +192,53 @@ function App() {
   };
 
   const handleDelete = async (type, id) => {
-    if (!window.confirm("Are you sure? This action cannot be undone.")) return;
-    try {
-      if (type === 'training' && assignments.some(a => a.trainingId === id)) return alert("Cannot delete Training: Linked assignments exist.");
-      if (type === 'student') {
-        await deleteStudent(id);
-        fetchData();
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Confirm Deletion',
+      message: 'Are you sure? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          if (type === 'training' && assignments.some(a => a.trainingId === id)) {
+            alert("Cannot delete Training: Linked assignments exist.");
+            return;
+          }
+          if (type === 'student') {
+            await deleteStudent(id);
+            fetchData();
+          }
+          if (type === 'user') {
+            await deleteUser(id);
+            fetchData();
+          }
+          if (type === 'company') {
+            await deleteCompany(id);
+            fetchData();
+          }
+          if (type === 'mentor') {
+            await deleteMentor(id);
+            fetchData();
+          }
+          if (type === 'training') {
+            await deleteTraining(id);
+            fetchData();
+          }
+          if (type === 'assignment') {
+            await deleteAssignment(id);
+            fetchData();
+          }
+        } catch (error) {
+          console.error("Delete failed", error);
+          if (error.response && error.response.data && error.response.data.errors) {
+            const messages = Object.values(error.response.data.errors).flat().join('\n');
+            alert(`Validation Failed:\n${messages}`);
+          } else if (error.response && error.response.data) {
+            alert(`Error: ${JSON.stringify(error.response.data)}`);
+          } else {
+            alert("Operation failed. Please check your input.");
+          }
+        }
       }
-      if (type === 'user') {
-        await deleteUser(id);
-        fetchData();
-      }
-      if (type === 'company') {
-        await deleteCompany(id);
-        fetchData();
-      }
-      if (type === 'mentor') {
-        await deleteMentor(id);
-        fetchData();
-      }
-      if (type === 'training') {
-        await deleteTraining(id);
-        fetchData();
-      }
-      if (type === 'assignment') {
-        await deleteAssignment(id);
-        fetchData();
-      }
-    } catch (error) {
-      console.error("Save failed", error);
-      if (error.response && error.response.data && error.response.data.errors) {
-        // Format validation errors from ASP.NET Core
-        const messages = Object.values(error.response.data.errors).flat().join('\n');
-        alert(`Validation Failed:\n${messages}`);
-      } else if (error.response && error.response.data) {
-        alert(`Error: ${JSON.stringify(error.response.data)}`);
-      } else {
-        alert("Operation failed. Please check your input.");
-      }
-    }
+    });
   };
 
   const openModal = (type, mode = 'create', item = null) => {
@@ -249,35 +246,61 @@ function App() {
     setModalConfig({ type, isOpen: true, mode, itemId: item?.id });
   };
 
-  const handleImportCSV = (e) => {
+  const handleImportCSV = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target.result;
-      const rows = text.split('\n').slice(1);
-      const newStudents = [];
-      const newUsers = [];
-      let currentStudentId = Date.now();
-      let currentUserId = currentStudentId + 1000;
-      rows.forEach(row => {
-        const cols = row.split(',');
-        if (cols.length < 7) return;
-        const [rollNo, firstName, lastName, email, program, year, phone] = cols.map(c => c.trim());
-        if (email && rollNo) {
-          newStudents.push({ id: currentStudentId, rollNo, firstName, lastName, email, program, year: parseInt(year), phone, isActive: true });
-          newUsers.push({ id: currentUserId, username: email.split('@')[0], password: 'password', role: ROLES.STUDENT, name: `${firstName} ${lastName}`, email, isActive: true });
-          currentStudentId++;
-          currentUserId++;
-        }
-      });
-      setStudents([...students, ...newStudents]);
-      setUsers([...users, ...newUsers]);
-      alert(`Successfully imported ${newStudents.length} students.`);
-    };
-    reader.readAsText(file);
-  };
 
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const csv = event.target.result;
+        const lines = csv.split('\n').filter(l => l.trim());
+        let successCount = 0;
+
+        for (const line of lines.slice(1)) {
+          const [rollNo, firstName, lastName, email, program, year, phone] = line.split(',').map(s => s.trim());
+          if (!rollNo || !email) continue;
+
+          try {
+            // Create student
+            await createStudent({
+              rollNo,
+              firstName,
+              lastName,
+              email,
+              program,
+              year: parseInt(year),
+              phone,
+              isActive: true
+            });
+
+            // Create corresponding user
+            await createUser({
+              username: email.split('@')[0],
+              password: 'password',
+              role: ROLES.STUDENT,
+              name: `${firstName} ${lastName}`,
+              email,
+              isActive: true
+            });
+
+            successCount++;
+          } catch (err) {
+            console.error(`Failed to import ${email}:`, err);
+          }
+        }
+
+        await fetchData();
+        alert(`Successfully imported ${successCount} students`);
+      } catch (error) {
+        console.error('CSV import failed:', error);
+        alert('Failed to import CSV. Please check the file format.');
+      }
+    };
+
+    reader.readAsText(file);
+    e.target.value = null;
+  };
   // Derived Data
   const enrichedAssignments = assignments.map(a => {
     const s = students.find(st => st.id === a.studentId);
@@ -333,15 +356,24 @@ function App() {
             trainings={trainings}
             companies={companies}
             mentors={mentors}
-            onAddAcademic={(rec) => setAcademics([...academics, { id: Date.now(), ...rec }])}
-            onDeleteAcademic={(id) => setAcademics(academics.filter(a => a.id !== id))}
-            onAddProgress={(rec) => {
-              setProgress([...progress, { id: Date.now(), date: new Date().toISOString().split('T')[0], ...rec }]);
+            onAddAcademic={async (rec) => { await createAcademicRecord(rec); fetchData(); }}
+            onDeleteAcademic={async (id) => { await deleteAcademicRecord(id); fetchData(); }}
+            onAddProgress={async (rec) => {
+              const progressData = { ...rec, date: new Date().toISOString().split('T')[0] };
+              await createTrainingProgress(progressData);
               const newStatus = parseInt(rec.percent) === 100 ? 'PendingEvaluation' : 'InProgress';
-              setAssignments(assignments.map(a => a.id === rec.assignmentId ? { ...a, progress: rec.percent, status: newStatus } : a));
+              const assignment = assignments.find(a => a.id === rec.assignmentId);
+              if (assignment) {
+                await updateAssignment(rec.assignmentId, { ...assignment, progress: rec.percent, status: newStatus });
+              }
+              fetchData();
             }}
-            onEvaluate={(assignmentId, score, remarks) => {
-              setAssignments(assignments.map(a => a.id === assignmentId ? { ...a, status: 'Completed', score, remarks: remarks || a.remarks } : a));
+            onEvaluate={async (assignmentId, score, remarks) => {
+              const assignment = assignments.find(a => a.id === assignmentId);
+              if (assignment) {
+                await updateAssignment(assignmentId, { ...assignment, status: 'Completed', score, remarks: remarks || assignment.remarks });
+                fetchData();
+              }
             }}
             onEditProfile={(s) => openModal('student', 'edit', s)}
             userRole={user.role}
@@ -359,15 +391,24 @@ function App() {
             trainings={trainings}
             companies={companies}
             mentors={mentors}
-            onAddAcademic={(rec) => setAcademics([...academics, { id: Date.now(), ...rec }])}
-            onDeleteAcademic={(id) => setAcademics(academics.filter(a => a.id !== id))}
-            onAddProgress={(rec) => {
-              setProgress([...progress, { id: Date.now(), date: new Date().toISOString().split('T')[0], ...rec }]);
+            onAddAcademic={async (rec) => { await createAcademicRecord(rec); fetchData(); }}
+            onDeleteAcademic={async (id) => { await deleteAcademicRecord(id); fetchData(); }}
+            onAddProgress={async (rec) => {
+              const progressData = { ...rec, date: new Date().toISOString().split('T')[0] };
+              await createTrainingProgress(progressData);
               const newStatus = parseInt(rec.percent) === 100 ? 'PendingEvaluation' : 'InProgress';
-              setAssignments(assignments.map(a => a.id === rec.assignmentId ? { ...a, progress: rec.percent, status: newStatus } : a));
+              const assignment = assignments.find(a => a.id === rec.assignmentId);
+              if (assignment) {
+                await updateAssignment(rec.assignmentId, { ...assignment, progress: rec.percent, status: newStatus });
+              }
+              fetchData();
             }}
-            onEvaluate={(assignmentId, score, remarks) => {
-              setAssignments(assignments.map(a => a.id === assignmentId ? { ...a, status: 'Completed', score, remarks: remarks || a.remarks } : a));
+            onEvaluate={async (assignmentId, score, remarks) => {
+              const assignment = assignments.find(a => a.id === assignmentId);
+              if (assignment) {
+                await updateAssignment(assignmentId, { ...assignment, status: 'Completed', score, remarks: remarks || assignment.remarks });
+                fetchData();
+              }
             }}
             onEditProfile={(s) => openModal('student', 'edit', s)}
             userRole={user.role}
@@ -411,7 +452,7 @@ function App() {
 
         <Route path="/admin" element={
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-            <Card className="p-6"><h3 className="font-bold mb-2">Data Seeding</h3><Button onClick={() => { if (window.confirm('Reset all data?')) { setStudents(INITIAL_STUDENTS); setCompanies(INITIAL_COMPANIES); setAssignments(INITIAL_ASSIGNMENTS); setTrainings(INITIAL_TRAININGS); setMentors(INITIAL_MENTORS); setUsers(INITIAL_USERS); } }}>Reset Database</Button></Card>
+            <Card className="p-6"><h3 className="font-bold mb-2">Data Seeding</h3><p className="text-sm text-textSecondary">Database is now managed via backend. Use backend seeding tools or Swagger API to manage data.</p></Card>
             <Card className="p-6">
               <h3 className="font-bold mb-2">Bulk Import</h3>
               <label className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center block cursor-pointer hover:bg-gray-50 transition-colors">
@@ -495,6 +536,14 @@ function App() {
         )}
         <Button onClick={handleSave} className="w-full mt-6">{modalConfig.mode === 'create' ? 'Create Record' : 'Save Changes'}</Button>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+      />
     </MainLayout>
   );
 }
