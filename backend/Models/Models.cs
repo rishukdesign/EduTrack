@@ -76,9 +76,13 @@ public class Assignment
 {
     public int Id { get; set; }
     public int StudentId { get; set; }
-    public int TrainingId { get; set; }
-    public int CompanyId { get; set; }
-    public int MentorId { get; set; }
+    public int? TrainingId { get; set; } // Made nullable to allow custom assignments
+    public int? CompanyId { get; set; }
+    public int? MentorId { get; set; }
+    
+    public string Title { get; set; } = string.Empty; // New Field
+    public string Description { get; set; } = string.Empty; // New Field
+
     public string Status { get; set; } = "Assigned"; // Assigned, InProgress, PendingEvaluation, Completed
     public DateTime AssignedDate { get; set; } = DateTime.Now;
     [Range(0, 100, ErrorMessage = "Progress must be between 0 and 100")]
@@ -93,11 +97,13 @@ public class AcademicRecord
     public int Id { get; set; }
     public int StudentId { get; set; }
     [Required]
-    public string Degree { get; set; } = string.Empty;
+    public string Qualification { get; set; } = string.Empty; // Renamed from Degree
     [Required]
     public string Institution { get; set; } = string.Empty;
     public int Year { get; set; }
-    public string Score { get; set; } = string.Empty;
+    public double TotalScore { get; set; } // New Field
+    public double ObtainedScore { get; set; } // New Field
+    // Removed old Score field
 }
 
 public class TrainingProgress

@@ -25,10 +25,22 @@ public class AssignmentsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Assignment>> PostAssignment(Assignment assignment)
     {
+        // If Title is not provided, try to inherit from Training
+        if (string.IsNullOrEmpty(assignment.Title) && assignment.TrainingId.HasValue)
+        {
+            var training = await _context.Trainings.FindAsync(assignment.TrainingId);
+            if (training != null)
+            {
+                assignment.Title = training.Title;
+                assignment.Description = training.Description;
+            }
+        }
+
         _context.Assignments.Add(assignment);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetAssignments), new { id = assignment.Id }, assignment);
     }
+
     [HttpGet("{id}")]
     public async Task<ActionResult<Assignment>> GetAssignment(int id)
     {

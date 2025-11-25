@@ -7,6 +7,7 @@ public static class DbInitializer
     public static void Initialize(AppDbContext context)
     {
         context.Database.EnsureCreated();
+        Console.WriteLine("DbInitializer: Database created or already exists.");
 
         // Seed Students
         if (context.Students.Count() < 3) // Check if we have the full seed set
@@ -79,14 +80,59 @@ public static class DbInitializer
             var companies = context.Companies.OrderBy(c => c.Id).ToList();
             var mentors = context.Mentors.OrderBy(m => m.Id).ToList();
 
-            if (students.Count >= 5 && trainings.Count >= 4 && companies.Count >= 4 && mentors.Count >= 4)
+            if (students.Count >= 4 && trainings.Count >= 4 && companies.Count >= 4 && mentors.Count >= 4)
             {
                 var assignments = new Assignment[]
                 {
-                    new Assignment { StudentId = students[0].Id, TrainingId = trainings[0].Id, CompanyId = companies[0].Id, MentorId = mentors[0].Id, Status = "InProgress", AssignedDate = DateTime.Now.AddMonths(-2), Progress = 60, Remarks = "Good progress in React" },
-                    new Assignment { StudentId = students[1].Id, TrainingId = trainings[1].Id, CompanyId = companies[2].Id, MentorId = mentors[2].Id, Status = "InProgress", AssignedDate = DateTime.Now.AddMonths(-1), Progress = 30, Remarks = "Learning Python basics" },
-                    new Assignment { StudentId = students[2].Id, TrainingId = trainings[0].Id, CompanyId = companies[1].Id, MentorId = mentors[1].Id, Status = "Assigned", AssignedDate = DateTime.Now.AddDays(-5), Progress = 0, Remarks = "Just joined" },
-                    new Assignment { StudentId = students[4].Id, TrainingId = trainings[3].Id, CompanyId = companies[3].Id, MentorId = mentors[3].Id, Status = "Completed", AssignedDate = DateTime.Now.AddMonths(-3), Progress = 100, Remarks = "Excellent performance", Score = 95 }
+                    new Assignment { 
+                        StudentId = students[0].Id, 
+                        TrainingId = trainings[0].Id, 
+                        CompanyId = companies[0].Id, 
+                        MentorId = mentors[0].Id, 
+                        Status = "InProgress", 
+                        AssignedDate = DateTime.Now.AddMonths(-2), 
+                        Progress = 60, 
+                        Remarks = "Good progress in React",
+                        Title = "Build a React Dashboard",
+                        Description = "Create a responsive dashboard using React and Tailwind CSS."
+                    },
+                    new Assignment { 
+                        StudentId = students[1].Id, 
+                        TrainingId = trainings[1].Id, 
+                        CompanyId = companies[2].Id, 
+                        MentorId = mentors[2].Id, 
+                        Status = "InProgress", 
+                        AssignedDate = DateTime.Now.AddMonths(-1), 
+                        Progress = 30, 
+                        Remarks = "Learning Python basics",
+                        Title = "Python Data Analysis",
+                        Description = "Analyze a dataset using Pandas and NumPy."
+                    },
+                    new Assignment { 
+                        StudentId = students[2].Id, 
+                        TrainingId = trainings[0].Id, 
+                        CompanyId = companies[1].Id, 
+                        MentorId = mentors[1].Id, 
+                        Status = "Assigned", 
+                        AssignedDate = DateTime.Now.AddDays(-5), 
+                        Progress = 0, 
+                        Remarks = "Just joined",
+                        Title = "API Integration",
+                        Description = "Integrate the frontend with the backend API."
+                    },
+                    new Assignment { 
+                        StudentId = students[3].Id, 
+                        TrainingId = trainings[3].Id, 
+                        CompanyId = companies[3].Id, 
+                        MentorId = mentors[3].Id, 
+                        Status = "Completed", 
+                        AssignedDate = DateTime.Now.AddMonths(-3), 
+                        Progress = 100, 
+                        Remarks = "Excellent performance", 
+                        Score = 95,
+                        Title = "Security Audit",
+                        Description = "Perform a security audit of the application."
+                    }
                 };
                 context.Assignments.AddRange(assignments);
                 context.SaveChanges();
@@ -96,14 +142,37 @@ public static class DbInitializer
         // Seed Users
         if (!context.Users.Any())
         {
+            Console.WriteLine("DbInitializer: Seeding Users...");
             var users = new User[]
             {
                 new User { Username = "admin", Password = "password", Role = "Admin", Name = "System Admin", Email = "admin@edutrack.edu" },
                 new User { Username = "faculty", Password = "password", Role = "Faculty", Name = "Dr. R.K. Narayan", Email = "faculty@edutrack.edu" },
-                new User { Username = "rahul", Password = "password", Role = "Student", Name = "Rahul Sharma", Email = "rahul@edutrack.edu", StudentId = context.Students.FirstOrDefault(s => s.Email == "rahul@edutrack.edu")?.Id }
+                // Create User for Aarav (First Student)
+                new User { Username = "aarav", Password = "password", Role = "Student", Name = "Aarav Patel", Email = "aarav@edutrack.edu", StudentId = context.Students.FirstOrDefault(s => s.Email == "aarav@edutrack.edu")?.Id },
+                // Create Demo User for Login Page Consistency
+                new User { Username = "student", Password = "password", Role = "Student", Name = "Demo Student", Email = "student@edutrack.edu", StudentId = context.Students.FirstOrDefault(s => s.Email == "aarav@edutrack.edu")?.Id }
             };
             context.Users.AddRange(users);
             context.SaveChanges();
+        }
+
+        // Seed AcademicRecords
+        if (!context.AcademicRecords.Any())
+        {
+            Console.WriteLine("DbInitializer: Seeding AcademicRecords...");
+            var students = context.Students.OrderBy(s => s.Id).ToList();
+            if (students.Count >= 2)
+            {
+                var records = new AcademicRecord[]
+                {
+                    new AcademicRecord { StudentId = students[0].Id, Qualification = "Class 10", Institution = "CBSE Board", Year = 2020, TotalScore = 500, ObtainedScore = 450 },
+                    new AcademicRecord { StudentId = students[0].Id, Qualification = "Class 12", Institution = "CBSE Board", Year = 2022, TotalScore = 500, ObtainedScore = 420 },
+                    new AcademicRecord { StudentId = students[1].Id, Qualification = "Class 10", Institution = "ICSE Board", Year = 2019, TotalScore = 600, ObtainedScore = 540 },
+                    new AcademicRecord { StudentId = students[1].Id, Qualification = "Class 12", Institution = "ISC Board", Year = 2021, TotalScore = 100, ObtainedScore = 85 } // Percentage case
+                };
+                context.AcademicRecords.AddRange(records);
+                context.SaveChanges();
+            }
         }
     }
 }

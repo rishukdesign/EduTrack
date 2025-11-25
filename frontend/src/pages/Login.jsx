@@ -4,41 +4,56 @@ import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 
-const Login = ({ onLogin, onRegister, mockUsers }) => {
+const Login = ({ onLogin, onRegister }) => {
     const [isRegistering, setIsRegistering] = useState(false);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
     const [fullName, setFullName] = useState('');
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
 
-    const handleSubmit = (e) => {
+    const validateEmail = (email) => {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setSuccessMsg('');
 
-        if (isRegistering) {
-            if (!username || !password || !email || !fullName) {
-                setError('All fields are required');
-                return;
-            }
-            onRegister({ username, password, email, name: fullName, role: 'Student' });
-            setSuccessMsg('Registration successful! Confirmation email sent. Please log in.');
-            setIsRegistering(false);
-            setUsername(''); setPassword(''); setEmail('');
-        } else {
-            // Mock login logic - replace with API call later
-            const user = mockUsers.find(u => (u.username === username || u.email === username) && u.password === password);
-            if (user) {
-                if (!user.isActive) {
-                    setError('Account is deactivated. Contact Admin.');
+        try {
+            if (isRegistering) {
+                if (!username || !password || !email || !fullName) {
+                    setError('All fields are required');
                     return;
                 }
-                onLogin(user);
+                if (!validateEmail(email)) {
+                    setError('Please enter a valid email address');
+                    return;
+                }
+                if (password.length < 6) {
+                    setError('Password must be at least 6 characters long');
+                    return;
+                }
+
+                await onRegister({ username, password, email, name: fullName, role: 'Student', phone });
+                setSuccessMsg('Registration successful! You can now log in.');
+                setIsRegistering(false);
+                setUsername(''); setPassword(''); setEmail(''); setPhone('');
             } else {
-                setError('Invalid credentials.');
+                if (!username || !password) {
+                    setError('Please enter both username/email and password');
+                    return;
+                }
+
+                const response = await onLogin({ username, password });
+                // onLogin in App.jsx will handle navigation
             }
+        } catch (err) {
+            console.error("Auth error:", err);
+            setError(err.response?.data?.message || 'Authentication failed. Please check your credentials.');
         }
     };
 
@@ -55,8 +70,9 @@ const Login = ({ onLogin, onRegister, mockUsers }) => {
                 {successMsg && <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-lg flex items-center gap-2"><CheckCircle size={16} /> {successMsg}</div>}
                 <form onSubmit={handleSubmit}>
                     {isRegistering && <Input label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} />}
-                    <Input label="Username or Email" value={username} onChange={(e) => setUsername(e.target.value)} />
+                    <Input label={isRegistering ? "Username" : "Username or Email"} value={username} onChange={(e) => setUsername(e.target.value)} />
                     {isRegistering && <Input label="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} />}
+                    {isRegistering && <Input label="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} />}
                     <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
                     {error && <div className="mb-4 p-3 bg-red-50 text-error text-sm rounded-lg flex items-center gap-2"><XCircle size={16} /> {error}</div>}
                     <Button type="submit" className="w-full justify-center">{isRegistering ? 'Register' : 'Sign In'}</Button>

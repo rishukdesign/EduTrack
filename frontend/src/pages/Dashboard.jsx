@@ -1,13 +1,19 @@
-import React from 'react';
-import { Users, Briefcase, ClipboardCheck, BookOpen } from 'lucide-react';
+import React, { useState } from 'react';
+import { BarChart, Users, BookOpen, CheckCircle, Clock, AlertCircle, User, X, Briefcase, ClipboardCheck } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
+import { useNavigate } from 'react-router-dom';
 
 const ROLES = { ADMIN: 'Admin', FACULTY: 'Faculty', STUDENT: 'Student' };
 
-const Dashboard = ({ user, students, assignments, trainings }) => {
+const Dashboard = ({ user, students, assignments, trainings, onEditAssignment }) => {
+    const navigate = useNavigate();
+    const [showNudge, setShowNudge] = useState(true);
     const studentAssignments = user.role === ROLES.STUDENT ? assignments.filter(a => a.studentId === user.studentId) : [];
     const pendingEvaluations = user.role !== ROLES.STUDENT ? assignments.filter(a => a.status === 'PendingEvaluation').length : 0;
+
+    const student = user?.role === 'Student' ? students.find(s => s.email === user.email) : null;
+    const isProfileIncomplete = student && (student.program === 'Pending' || !student.phone);
 
     const stats = [
         { label: 'Total Students', value: students.length, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', show: user.role !== ROLES.STUDENT },
@@ -19,6 +25,22 @@ const Dashboard = ({ user, students, assignments, trainings }) => {
     return (
         <div className="animate-fade-in">
             <h2 className="text-2xl font-bold text-text-text-primary mb-6">Welcome, {user.name}</h2>
+
+            {user?.role === 'Student' && isProfileIncomplete && showNudge && (
+                <div className="mb-6 bg-blue-50 border border-blue-200 p-4 rounded-lg flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-blue-100 p-2 rounded-full text-blue-600">
+                            <User size={20} />
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-blue-900">Complete your profile</h4>
+                            <p className="text-sm text-blue-700">Please update your program details and phone number to get the most out of EduTrack.</p>
+                        </div>
+                    </div>
+                    <button onClick={() => setShowNudge(false)} className="text-blue-500 hover:text-blue-700"><X size={20} /></button>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {stats.filter(s => s.show).map((stat, idx) => (
                     <Card key={idx} className="p-6 flex items-center gap-4">
@@ -35,10 +57,16 @@ const Dashboard = ({ user, students, assignments, trainings }) => {
                             {studentAssignments.filter(a => ['Assigned', 'InProgress', 'PendingEvaluation'].includes(a.status)).map(assign => {
                                 const train = trainings.find(t => t.id === assign.trainingId);
                                 return (
-                                    <div key={assign.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                    <div key={assign.id}
+                                        onClick={() => navigate(`/assignments/${assign.id}`)}
+                                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-2 h-12 rounded-full ${assign.status === 'InProgress' ? 'bg-blue-500' : assign.status === 'PendingEvaluation' ? 'bg-amber-500' : 'bg-gray-400'}`}></div>
-                                            <div><p className="font-bold text-gray-800">{train?.title}</p><p className="text-sm text-gray-500">{assign.status} • {assign.progress}% Complete</p></div>
+                                            {/* Status bar removed */}
+                                            <div>
+                                                <p className="text-xs text-primary font-medium mb-0.5">{train?.title}</p>
+                                                <p className="font-bold text-gray-800">{assign.title || "Assignment"}</p>
+                                                <p className="text-sm text-gray-500">{assign.status} • {assign.progress}% Complete</p>
+                                            </div>
                                         </div>
                                         <Badge status={assign.status} />
                                     </div>

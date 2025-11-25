@@ -10,6 +10,9 @@ const api = axios.create({
     },
 });
 
+export const login = (credentials) => api.post('/auth/login', credentials);
+export const register = (userData) => api.post('/auth/register', userData);
+
 export const getStudents = () => api.get('/students');
 export const getStudent = (id) => api.get(`/students/${id}`);
 export const createStudent = (student) => api.post('/students', student);

@@ -1,14 +1,7 @@
 /Users/rishu/Library/CloudStorage/OneDrive-MemeticSolutions/Documents/BCA Final Project/EduTrack/backend/publish/EduTrack.Backend
-/Users/rishu/Library/CloudStorage/OneDrive-MemeticSolutions/Documents/BCA Final Project/EduTrack/backend/publish/publish/web.config
 /Users/rishu/Library/CloudStorage/OneDrive-MemeticSolutions/Documents/BCA Final Project/EduTrack/backend/publish/appsettings.Development.json
 /Users/rishu/Library/CloudStorage/OneDrive-MemeticSolutions/Documents/BCA Final Project/EduTrack/backend/publish/appsettings.json
 /Users/rishu/Library/CloudStorage/OneDrive-MemeticSolutions/Documents/BCA Final Project/EduTrack/backend/publish/appsettings.Production.json
-/Users/rishu/Library/CloudStorage/OneDrive-MemeticSolutions/Documents/BCA Final Project/EduTrack/backend/publish/publish/appsettings.Development.json
-/Users/rishu/Library/CloudStorage/OneDrive-MemeticSolutions/Documents/BCA Final Project/EduTrack/backend/publish/publish/appsettings.json
-/Users/rishu/Library/CloudStorage/OneDrive-MemeticSolutions/Documents/BCA Final Project/EduTrack/backend/publish/publish/appsettings.Production.json
-/Users/rishu/Library/CloudStorage/OneDrive-MemeticSolutions/Documents/BCA Final Project/EduTrack/backend/publish/publish/EduTrack.Backend.deps.json
-/Users/rishu/Library/CloudStorage/OneDrive-MemeticSolutions/Documents/BCA Final Project/EduTrack/backend/publish/publish/EduTrack.Backend.runtimeconfig.json
-/Users/rishu/Library/CloudStorage/OneDrive-MemeticSolutions/Documents/BCA Final Project/EduTrack/backend/publish/publish/EduTrack.Backend.staticwebassets.endpoints.json
 /Users/rishu/Library/CloudStorage/OneDrive-MemeticSolutions/Documents/BCA Final Project/EduTrack/backend/publish/EduTrack.Backend.dll
 /Users/rishu/Library/CloudStorage/OneDrive-MemeticSolutions/Documents/BCA Final Project/EduTrack/backend/publish/EduTrack.Backend.runtimeconfig.json
 /Users/rishu/Library/CloudStorage/OneDrive-MemeticSolutions/Documents/BCA Final Project/EduTrack/backend/publish/EduTrack.Backend.pdb

@@ -7,7 +7,7 @@ const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message }) => {
 
     return ReactDOM.createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose}></div>
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
             <div className="bg-white rounded-lg shadow-xl z-10 max-w-md w-full mx-4 animate-fade-in">
                 <div className="p-6">
                     <h3 className="text-lg font-bold text-text-text-primary mb-2">{title}</h3>
