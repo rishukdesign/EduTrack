@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { BookOpen, CheckCircle, XCircle } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
@@ -11,8 +12,8 @@ const Login = ({ onLogin, onRegister }) => {
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [fullName, setFullName] = useState('');
-    const [error, setError] = useState('');
-    const [successMsg, setSuccessMsg] = useState('');
+    const [errors, setErrors] = useState({});
+    const toast = useToast();
 
     const validateEmail = (email) => {
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -20,40 +21,45 @@ const Login = ({ onLogin, onRegister }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
-        setSuccessMsg('');
+        setErrors({});
+        const newErrors = {};
 
         try {
             if (isRegistering) {
-                if (!username || !password || !email || !fullName) {
-                    setError('All fields are required');
-                    return;
+                if (!username) newErrors.username = 'Username is required';
+                if (!password) newErrors.password = 'Password is required';
+                if (!email) newErrors.email = 'Email is required';
+                else if (!validateEmail(email)) newErrors.email = 'Invalid email address';
+                if (!fullName) newErrors.fullName = 'Full Name is required';
+
+                if (password && password.length < 6) {
+                    newErrors.password = 'Password must be at least 6 characters long';
                 }
-                if (!validateEmail(email)) {
-                    setError('Please enter a valid email address');
-                    return;
-                }
-                if (password.length < 6) {
-                    setError('Password must be at least 6 characters long');
+
+                if (Object.keys(newErrors).length > 0) {
+                    setErrors(newErrors);
                     return;
                 }
 
                 await onRegister({ username, password, email, name: fullName, role: 'Student', phone });
-                setSuccessMsg('Registration successful! You can now log in.');
+                toast.success('Registration successful! You can now log in.');
                 setIsRegistering(false);
                 setUsername(''); setPassword(''); setEmail(''); setPhone('');
             } else {
-                if (!username || !password) {
-                    setError('Please enter both username/email and password');
+                if (!username) newErrors.username = 'Username/Email is required';
+                if (!password) newErrors.password = 'Password is required';
+
+                if (Object.keys(newErrors).length > 0) {
+                    setErrors(newErrors);
                     return;
                 }
 
-                const response = await onLogin({ username, password });
-                // onLogin in App.jsx will handle navigation
+                await onLogin({ username, password });
+                toast.success('Login successful');
             }
         } catch (err) {
             console.error("Auth error:", err);
-            setError(err.response?.data?.message || 'Authentication failed. Please check your credentials.');
+            toast.error(err.response?.data?.message || 'Authentication failed. Please check your credentials.');
         }
     };
 
@@ -67,14 +73,13 @@ const Login = ({ onLogin, onRegister }) => {
                     <h1 className="text-2xl font-bold text-text-text-primary">EduTrack</h1>
                     <p className="text-textSecondary">Student Information Management System</p>
                 </div>
-                {successMsg && <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-lg flex items-center gap-2"><CheckCircle size={16} /> {successMsg}</div>}
+
                 <form onSubmit={handleSubmit}>
-                    {isRegistering && <Input label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} />}
-                    <Input label={isRegistering ? "Username" : "Username or Email"} value={username} onChange={(e) => setUsername(e.target.value)} />
-                    {isRegistering && <Input label="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} />}
-                    {isRegistering && <Input label="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} />}
-                    <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-                    {error && <div className="mb-4 p-3 bg-red-50 text-error text-sm rounded-lg flex items-center gap-2"><XCircle size={16} /> {error}</div>}
+                    {isRegistering && <Input label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} error={errors.fullName} />}
+                    <Input label={isRegistering ? "Username" : "Username or Email"} value={username} onChange={(e) => setUsername(e.target.value)} error={errors.username} />
+                    {isRegistering && <Input label="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} />}
+                    {isRegistering && <Input label="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} error={errors.phone} />}
+                    <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} error={errors.password} />
                     <Button type="submit" className="w-full justify-center">{isRegistering ? 'Register' : 'Sign In'}</Button>
                 </form>
                 <div className="mt-6 text-center text-xs text-textSecondary">

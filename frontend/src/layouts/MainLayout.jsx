@@ -4,16 +4,12 @@ import {
     GraduationCap, User, BarChart2, Settings, LogOut, Menu, X, Bell
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
-import Card from '../components/ui/Card';
+import NotificationBell from '../components/layout/NotificationBell';
 
 const ROLES = { ADMIN: 'Admin', FACULTY: 'Faculty', STUDENT: 'Student' };
 
 const MainLayout = ({ children, user, onLogout }) => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [isNotifOpen, setIsNotifOpen] = useState(false);
-    const [notifications, setNotifications] = useState([
-        { id: 1, title: 'Assignment Updated', body: 'Your progress was updated by mentor.', isRead: false }
-    ]);
 
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: [ROLES.ADMIN, ROLES.FACULTY, ROLES.STUDENT] },
@@ -69,26 +65,7 @@ const MainLayout = ({ children, user, onLogout }) => {
                     <button onClick={() => setSidebarOpen(true)} className="md:hidden"><Menu /></button>
                     <div className="hidden md:block text-sm text-textSecondary">Academic Year 2023-2024</div>
                     <div className="relative">
-                        <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="relative p-2 hover:bg-gray-100 rounded-full">
-                            <Bell size={20} className="text-textSecondary" />
-                            {notifications.some(n => !n.isRead) && <span className="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>}
-                        </button>
-                        {isNotifOpen && (
-                            <Card className="absolute right-0 mt-2 w-80 z-50 p-0 overflow-hidden animate-fade-in border-blue-100 shadow-xl">
-                                <div className="p-3 border-b bg-gray-50 font-bold text-sm flex justify-between">
-                                    <span>Notifications</span>
-                                    <span className="text-xs text-info cursor-pointer" onClick={() => setNotifications(notifications.map(n => ({ ...n, isRead: true })))}>Mark all read</span>
-                                </div>
-                                <div className="max-h-64 overflow-y-auto">
-                                    {notifications.length === 0 ? <div className="p-4 text-sm text-textSecondary">No notifications</div> : notifications.map(n => (
-                                        <div key={n.id} className={`p-3 border-b hover:bg-gray-50 cursor-pointer ${!n.isRead ? 'bg-blue-50/50' : ''}`}>
-                                            <div className="flex justify-between"><p className="text-sm font-medium">{n.title}</p>{!n.isRead && <div className="w-2 h-2 bg-info rounded-full"></div>}</div>
-                                            <p className="text-xs text-textSecondary">{n.body}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </Card>
-                        )}
+                        <NotificationBell />
                     </div>
                 </header>
 

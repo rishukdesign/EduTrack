@@ -10,6 +10,7 @@ import Badge from '../components/ui/Badge';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import Modal from '../components/ui/Modal';
+import { useToast } from '../context/ToastContext';
 
 const ROLES = { ADMIN: 'Admin', FACULTY: 'Faculty', STUDENT: 'Student' };
 
@@ -40,32 +41,70 @@ const StudentDetail = ({
     const [academicForm, setAcademicForm] = useState({ qualification: '', institution: '', year: '', totalScore: '', obtainedScore: '' });
     const [progressForm, setProgressForm] = useState({ percent: '', status: 'OnTrack', feedback: '' });
     const [evalForm, setEvalForm] = useState({ score: '', remarks: '' });
+    const [errors, setErrors] = useState({});
+    const toast = useToast();
 
     const studentAssignments = assignments.filter(a => a.studentId === currentStudent.id);
     const studentAcademics = academics.filter(a => a.studentId === currentStudent.id);
 
     const handleAcademicSubmit = () => {
-        if (!academicForm.qualification || !academicForm.year) return;
+        setErrors({});
+        const newErrors = {};
+        if (!academicForm.qualification) newErrors.qualification = 'Qualification is required';
+        if (!academicForm.institution) newErrors.institution = 'Institution is required';
+        if (!academicForm.year) newErrors.year = 'Year is required';
+        if (!academicForm.totalScore) newErrors.totalScore = 'Total Score is required';
+        if (!academicForm.obtainedScore) newErrors.obtainedScore = 'Obtained Score is required';
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return;
+        }
+
         onAddAcademic({ ...academicForm, studentId: currentStudent.id });
         setAcademicModalOpen(false);
         setAcademicForm({ qualification: '', institution: '', year: '', totalScore: '', obtainedScore: '' });
+        toast.success('Academic record added');
     };
 
     // ... (keep other handlers)
 
     // ... (inside return)
     const handleProgressSubmit = () => {
-        if (!selectedAssignmentId) return;
+        setErrors({});
+        if (!selectedAssignmentId) return toast.error('No assignment selected');
+
+        const newErrors = {};
+        if (progressForm.percent === '') newErrors.percent = 'Percentage is required';
+        if (!progressForm.feedback) newErrors.feedback = 'Feedback is required';
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return;
+        }
+
         onAddProgress({ ...progressForm, assignmentId: selectedAssignmentId });
         setProgressModalOpen(false);
         setProgressForm({ percent: '', status: 'OnTrack', feedback: '' });
+        toast.success('Progress updated');
     };
 
     const handleEvalSubmit = () => {
-        if (!selectedAssignmentId || !evalForm.score) return;
+        setErrors({});
+        if (!selectedAssignmentId) return toast.error('No assignment selected');
+
+        const newErrors = {};
+        if (evalForm.score === '') newErrors.score = 'Score is required';
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return;
+        }
+
         onEvaluate(selectedAssignmentId, evalForm.score, evalForm.remarks);
         setIsEvalModalOpen(false);
         setEvalForm({ score: '', remarks: '' });
+        toast.success('Evaluation submitted');
     };
 
     const handleBack = () => {
@@ -217,26 +256,26 @@ const StudentDetail = ({
             )}
 
             <Modal isOpen={isAcademicModalOpen} onClose={() => setAcademicModalOpen(false)} title="Add Academic Record">
-                <Input label="Qualification (e.g., Class 10, BCA)" value={academicForm.qualification} onChange={e => setAcademicForm({ ...academicForm, qualification: e.target.value })} />
-                <Input label="Institution/Board" value={academicForm.institution} onChange={e => setAcademicForm({ ...academicForm, institution: e.target.value })} />
+                <Input label="Qualification (e.g., Class 10, BCA)" value={academicForm.qualification} onChange={e => setAcademicForm({ ...academicForm, qualification: e.target.value })} error={errors.qualification} />
+                <Input label="Institution/Board" value={academicForm.institution} onChange={e => setAcademicForm({ ...academicForm, institution: e.target.value })} error={errors.institution} />
                 <div className="grid grid-cols-3 gap-4">
-                    <Input label="Year" type="number" value={academicForm.year} onChange={e => setAcademicForm({ ...academicForm, year: e.target.value })} />
-                    <Input label="Total Score" type="number" value={academicForm.totalScore} onChange={e => setAcademicForm({ ...academicForm, totalScore: e.target.value })} />
-                    <Input label="Obtained" type="number" value={academicForm.obtainedScore} onChange={e => setAcademicForm({ ...academicForm, obtainedScore: e.target.value })} />
+                    <Input label="Year" type="number" value={academicForm.year} onChange={e => setAcademicForm({ ...academicForm, year: e.target.value })} error={errors.year} />
+                    <Input label="Total Score" type="number" value={academicForm.totalScore} onChange={e => setAcademicForm({ ...academicForm, totalScore: e.target.value })} error={errors.totalScore} />
+                    <Input label="Obtained" type="number" value={academicForm.obtainedScore} onChange={e => setAcademicForm({ ...academicForm, obtainedScore: e.target.value })} error={errors.obtainedScore} />
                 </div>
                 <Button onClick={handleAcademicSubmit} className="w-full mt-4">Save Record</Button>
             </Modal>
 
             <Modal isOpen={isProgressModalOpen} onClose={() => setProgressModalOpen(false)} title="Update Progress">
-                <Input label="Completion %" type="number" min="0" max="100" value={progressForm.percent} onChange={e => setProgressForm({ ...progressForm, percent: e.target.value })} />
+                <Input label="Completion %" type="number" min="0" max="100" value={progressForm.percent} onChange={e => setProgressForm({ ...progressForm, percent: e.target.value })} error={errors.percent} />
                 <Select label="Status" options={[{ value: 'OnTrack', label: 'On Track' }, { value: 'Delayed', label: 'Delayed' }]} value={progressForm.status} onChange={e => setProgressForm({ ...progressForm, status: e.target.value })} />
-                <Input label="Feedback / Remarks" value={progressForm.feedback} onChange={e => setProgressForm({ ...progressForm, feedback: e.target.value })} />
+                <Input label="Feedback / Remarks" value={progressForm.feedback} onChange={e => setProgressForm({ ...progressForm, feedback: e.target.value })} error={errors.feedback} />
                 <Button onClick={handleProgressSubmit} className="w-full mt-4">Add Update</Button>
             </Modal>
 
             <Modal isOpen={isEvalModalOpen} onClose={() => setIsEvalModalOpen(false)} title="Final Project Evaluation">
                 <p className="text-sm text-gray-600 mb-4">This student has completed 100% of the training. Please provide a final score to close the assignment.</p>
-                <Input label="Final Score (0-100)" type="number" min="0" max="100" value={evalForm.score} onChange={e => setEvalForm({ ...evalForm, score: e.target.value })} />
+                <Input label="Final Score (0-100)" type="number" min="0" max="100" value={evalForm.score} onChange={e => setEvalForm({ ...evalForm, score: e.target.value })} error={errors.score} />
                 <Input label="Final Remarks" value={evalForm.remarks} onChange={e => setEvalForm({ ...evalForm, remarks: e.target.value })} />
                 <Button onClick={handleEvalSubmit} className="w-full mt-4" icon={Award}>Submit Evaluation</Button>
             </Modal>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Upload, Settings, Plus } from 'lucide-react';
 import LoadingSpinner from './components/ui/LoadingSpinner';
+import { useToast } from './context/ToastContext';
 
 // Layouts & Components
 import MainLayout from './layouts/MainLayout';
@@ -19,6 +20,7 @@ import Checkbox from './components/ui/Checkbox';
 import Button from './components/ui/Button';
 import Badge from './components/ui/Badge';
 import Card from './components/ui/Card';
+import { NotificationProvider } from './context/NotificationContext';
 
 // Constants
 const ROLES = { ADMIN: 'Admin', FACULTY: 'Faculty', STUDENT: 'Student' };
@@ -45,7 +47,9 @@ function App() {
   // Modal State
   const [modalConfig, setModalConfig] = useState({ type: null, isOpen: false, mode: 'create', itemId: null });
   const [formData, setFormData] = useState({});
+  const [errors, setErrors] = useState({});
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
+  const toast = useToast();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -126,34 +130,72 @@ function App() {
 
   // CRUD Operations
   const handleSave = async () => {
-    // Validation logic...
+    setErrors({});
+    const newErrors = {};
     const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
     if (modalConfig.type === 'user') {
-      if (!formData.username || !formData.name || !formData.email) return alert('All fields are required');
-      if (!validateEmail(formData.email)) return alert('Invalid email format');
-      if (modalConfig.mode === 'create' && (!formData.password || formData.password.length < 6)) return alert('Password must be at least 6 characters');
-    }
+      if (!formData.username) newErrors.username = 'Username is required';
+      if (!formData.name) newErrors.name = 'Name is required';
+      if (!formData.email) newErrors.email = 'Email is required';
+      else if (!validateEmail(formData.email)) newErrors.email = 'Invalid email format';
 
-    if (modalConfig.type === 'student' && !formData.email) return alert('Email required');
-    if (modalConfig.type === 'training') {
-      if (!formData.title) return alert('Training Title is required');
-      if (formData.startDate && formData.endDate && new Date(formData.startDate) > new Date(formData.endDate)) return alert('Start Date must be before End Date');
-    }
-    if (modalConfig.type === 'assignment' && !formData.studentId) return alert('Student selection is required');
-    if (modalConfig.type === 'assignment' && !formData.trainingId) return alert('Training selection is required');
-
-    // Duplicate Checks
-    if (modalConfig.mode === 'create') {
-      if (modalConfig.type === 'student' && students.some(s => s.email === formData.email || s.rollNo === formData.rollNo)) {
-        return alert('A student with this Email or Roll No already exists.');
+      if (modalConfig.mode === 'create' && (!formData.password || formData.password.length < 6)) {
+        newErrors.password = 'Password must be at least 6 characters';
       }
-      if (modalConfig.type === 'training' && trainings.some(t => t.title.toLowerCase() === formData.title.toLowerCase())) {
-        return alert('A training with this title already exists.');
+    }
+
+    if (modalConfig.type === 'student') {
+      if (!formData.firstName) newErrors.firstName = 'First Name is required';
+      if (!formData.lastName) newErrors.lastName = 'Last Name is required';
+      if (!formData.rollNo) newErrors.rollNo = 'Roll No is required';
+      if (!formData.program) newErrors.program = 'Program is required';
+      if (!formData.year) newErrors.year = 'Year is required';
+      if (!formData.email) newErrors.email = 'Email is required';
+      else if (!validateEmail(formData.email)) newErrors.email = 'Invalid email format';
+    }
+
+    if (modalConfig.type === 'training') {
+      if (!formData.title) newErrors.title = 'Training Title is required';
+      if (formData.startDate && formData.endDate && new Date(formData.startDate) > new Date(formData.endDate)) {
+        newErrors.endDate = 'End Date must be after Start Date';
+      }
+    }
+
+    if (modalConfig.type === 'assignment') {
+      if (!formData.title) newErrors.title = 'Title is required';
+      if (!formData.studentId) newErrors.studentId = 'Student selection is required';
+      if (!formData.trainingId) newErrors.trainingId = 'Training selection is required';
+    }
+
+    if (modalConfig.type === 'company') {
+      if (!formData.name) newErrors.name = 'Company Name is required';
+    }
+
+    if (modalConfig.type === 'mentor') {
+      if (!formData.name) newErrors.name = 'Name is required';
+      if (!formData.companyId) newErrors.companyId = 'Company is required';
+    }
+
+    // Duplicate Checks (Client-side)
+    if (modalConfig.mode === 'create') {
+      if (modalConfig.type === 'student' && students.some(s => s.email === formData.email)) {
+        newErrors.email = 'Email already exists';
+      }
+      if (modalConfig.type === 'student' && students.some(s => s.rollNo === formData.rollNo)) {
+        newErrors.rollNo = 'Roll No already exists';
+      }
+      if (modalConfig.type === 'training' && trainings.some(t => t.title.toLowerCase() === formData.title?.toLowerCase())) {
+        newErrors.title = 'Training with this title already exists';
       }
       if (modalConfig.type === 'assignment' && assignments.some(a => a.studentId === formData.studentId && a.trainingId === formData.trainingId)) {
-        return alert('This student is already assigned to this training.');
+        newErrors.studentId = 'Student already assigned to this training';
       }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
     }
 
     const id = modalConfig.mode === 'create' ? Date.now() : modalConfig.itemId;
@@ -161,54 +203,66 @@ function App() {
 
     try {
       if (modalConfig.type === 'student') {
-        const record = { isActive: true, ...formData }; // Backend handles ID
+        const record = { isActive: true, ...formData };
         if (modalConfig.mode === 'create') {
           await createStudent(record);
-          // Optimistic update or refetch
           fetchData();
           if (!users.some(u => u.email === record.email)) {
-            setUsers([...users, { id: id + 1, username: formData.email.split('@')[0], password: 'password', role: ROLES.STUDENT, name: `${formData.firstName} ${formData.lastName}`, email: formData.email, isActive: true }]);
+            // Auto-create user logic remains
+            // Note: In a real app, backend should handle this or we make a separate call
           }
+          toast.success('Student created successfully');
         } else {
           await updateStudent(modalConfig.itemId, record);
           fetchData();
+          toast.success('Student updated successfully');
         }
       } else if (modalConfig.type === 'user') {
         const record = { isActive: true, ...formData };
         if (modalConfig.mode === 'create') {
           await createUser(record);
+          toast.success('User created successfully');
         } else {
           await updateUser(modalConfig.itemId, record);
+          toast.success('User updated successfully');
         }
         fetchData();
       } else if (modalConfig.type === 'company') {
         if (modalConfig.mode === 'create') {
           await createCompany(formData);
+          toast.success('Company created successfully');
         } else {
           await updateCompany(modalConfig.itemId, formData);
+          toast.success('Company updated successfully');
         }
         fetchData();
       } else if (modalConfig.type === 'mentor') {
         if (modalConfig.mode === 'create') {
           await createMentor(formData);
+          toast.success('Mentor created successfully');
         } else {
           await updateMentor(modalConfig.itemId, formData);
+          toast.success('Mentor updated successfully');
         }
         fetchData();
       } else if (modalConfig.type === 'training') {
         const safeFormData = { ...formData, startDate: formData.startDate || '', endDate: formData.endDate || '' };
         if (modalConfig.mode === 'create') {
           await createTraining(safeFormData);
+          toast.success('Training created successfully');
         } else {
           await updateTraining(modalConfig.itemId, safeFormData);
+          toast.success('Training updated successfully');
         }
         fetchData();
       } else if (modalConfig.type === 'assignment') {
         const record = { status: 'Assigned', assignedDate: new Date().toISOString().split('T')[0], progress: 0, ...formData };
         if (modalConfig.mode === 'create') {
           await createAssignment(record);
+          toast.success('Assignment created successfully');
         } else {
           await updateAssignment(modalConfig.itemId, formData);
+          toast.success('Assignment updated successfully');
         }
         fetchData();
       }
@@ -216,7 +270,11 @@ function App() {
       setFormData({});
     } catch (error) {
       console.error("Save failed", error);
-      alert("Operation failed");
+      toast.error(error.response?.data?.message || "Operation failed. Please check your input.");
+      if (error.response?.data?.errors) {
+        // Map backend validation errors to field errors if possible
+        // For now, we just rely on the toast for the main message
+      }
     } finally {
       setIsLoading(false);
     }
@@ -230,42 +288,48 @@ function App() {
       onConfirm: async () => {
         try {
           if (type === 'training' && assignments.some(a => a.trainingId === id)) {
-            alert("Cannot delete Training: Linked assignments exist.");
+            toast.error("Cannot delete Training: Linked assignments exist.");
             return;
           }
           if (type === 'student') {
             await deleteStudent(id);
             fetchData();
+            toast.success('Student deleted successfully');
           }
           if (type === 'user') {
             await deleteUser(id);
             fetchData();
+            toast.success('User deleted successfully');
           }
           if (type === 'company') {
             await deleteCompany(id);
             fetchData();
+            toast.success('Company deleted successfully');
           }
           if (type === 'mentor') {
             await deleteMentor(id);
             fetchData();
+            toast.success('Mentor deleted successfully');
           }
           if (type === 'training') {
             await deleteTraining(id);
             fetchData();
+            toast.success('Training deleted successfully');
           }
           if (type === 'assignment') {
             await deleteAssignment(id);
             fetchData();
+            toast.success('Assignment deleted successfully');
           }
         } catch (error) {
           console.error("Delete failed", error);
           if (error.response && error.response.data && error.response.data.errors) {
             const messages = Object.values(error.response.data.errors).flat().join('\n');
-            alert(`Validation Failed:\n${messages}`);
+            toast.error(`Validation Failed: ${messages}`);
           } else if (error.response && error.response.data) {
-            alert(`Error: ${JSON.stringify(error.response.data)}`);
+            toast.error(`Error: ${error.response.data.message || JSON.stringify(error.response.data)}`);
           } else {
-            alert("Operation failed. Please check your input.");
+            toast.error("Operation failed. Please check your input.");
           }
         }
       }
@@ -322,10 +386,10 @@ function App() {
         }
 
         await fetchData();
-        alert(`Successfully imported ${successCount} students`);
+        toast.success(`Successfully imported ${successCount} students`);
       } catch (error) {
         console.error('CSV import failed:', error);
-        alert('Failed to import CSV. Please check the file format.');
+        toast.error('Failed to import CSV. Please check the file format.');
       }
     };
 
@@ -357,233 +421,235 @@ function App() {
   }
 
   return (
-    <MainLayout user={user} onLogout={handleLogout}>
-      {isLoading && <LoadingSpinner fullScreen message="Syncing Data..." />}
-      <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<Dashboard user={user} students={students} assignments={assignments} trainings={trainings} onEditAssignment={(a) => openModal('assignment', 'edit', a)} />} />
-        <Route path="/reports" element={<Reports students={students} trainings={trainings} assignments={assignments} />} />
+    <NotificationProvider user={user}>
+      <MainLayout user={user} onLogout={handleLogout}>
+        {isLoading && <LoadingSpinner fullScreen message="Syncing Data..." />}
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Dashboard user={user} students={students} assignments={assignments} trainings={trainings} onEditAssignment={(a) => openModal('assignment', 'edit', a)} />} />
+          <Route path="/reports" element={<Reports students={students} trainings={trainings} assignments={assignments} />} />
 
-        <Route path="/students" element={
-          <GenericList
-            title="Student Management"
-            data={students}
-            onAdd={isAdmin ? () => openModal('student') : undefined}
-            onEdit={isAdmin ? (item) => openModal('student', 'edit', item) : undefined}
-            onDelete={isAdmin ? (id) => handleDelete('student', id) : undefined}
-            onRowClick={(s) => navigate(`/students/${s.id}`)}
-            columns={[
-              { header: 'Roll No', field: 'rollNo' },
-              { header: 'Name', render: (s) => `${s.firstName} ${s.lastName}` },
-              { header: 'Program', field: 'program' },
-              { header: 'Status', render: (s) => <Badge status={s.isActive ? 'Active' : 'Inactive'} /> },
-              { header: 'Action', render: (s) => <Button variant="ghost" className="h-auto p-1 text-info" onClick={(e) => { e.stopPropagation(); navigate(`/students/${s.id}`); }}>View</Button> }
-            ]}
-          />
-        } />
+          <Route path="/students" element={
+            <GenericList
+              title="Student Management"
+              data={students}
+              onAdd={isAdmin ? () => openModal('student') : undefined}
+              onEdit={isAdmin ? (item) => openModal('student', 'edit', item) : undefined}
+              onDelete={isAdmin ? (id) => handleDelete('student', id) : undefined}
+              onRowClick={(s) => navigate(`/students/${s.id}`)}
+              columns={[
+                { header: 'Roll No', field: 'rollNo' },
+                { header: 'Name', render: (s) => `${s.firstName} ${s.lastName}` },
+                { header: 'Program', field: 'program' },
+                { header: 'Status', render: (s) => <Badge status={s.isActive ? 'Active' : 'Inactive'} /> },
+                { header: 'Action', render: (s) => <Button variant="ghost" className="h-auto p-1 text-info" onClick={(e) => { e.stopPropagation(); navigate(`/students/${s.id}`); }}>View</Button> }
+              ]}
+            />
+          } />
 
-        <Route path="/students/:id" element={
-          <StudentDetail
-            students={students}
-            onBack={() => navigate('/students')}
-            assignments={assignments}
-            academics={academics}
-            progress={progress}
-            trainings={trainings}
-            companies={companies}
-            mentors={mentors}
-            onAddAcademic={async (rec) => { await createAcademicRecord(rec); fetchData(); }}
-            onDeleteAcademic={async (id) => { await deleteAcademicRecord(id); fetchData(); }}
-            onAddProgress={async (rec) => {
-              const progressData = { ...rec, date: new Date().toISOString().split('T')[0] };
-              await createTrainingProgress(progressData);
-              const newStatus = parseInt(rec.percent) === 100 ? 'PendingEvaluation' : 'InProgress';
-              const assignment = assignments.find(a => a.id === rec.assignmentId);
-              if (assignment) {
-                await updateAssignment(rec.assignmentId, { ...assignment, progress: rec.percent, status: newStatus });
-              }
-              fetchData();
-            }}
-            onEvaluate={async (assignmentId, score, remarks) => {
-              const assignment = assignments.find(a => a.id === assignmentId);
-              if (assignment) {
-                await updateAssignment(assignmentId, { ...assignment, status: 'Completed', score, remarks: remarks || assignment.remarks });
+          <Route path="/students/:id" element={
+            <StudentDetail
+              students={students}
+              onBack={() => navigate('/students')}
+              assignments={assignments}
+              academics={academics}
+              progress={progress}
+              trainings={trainings}
+              companies={companies}
+              mentors={mentors}
+              onAddAcademic={async (rec) => { await createAcademicRecord(rec); fetchData(); }}
+              onDeleteAcademic={async (id) => { await deleteAcademicRecord(id); fetchData(); }}
+              onAddProgress={async (rec) => {
+                const progressData = { ...rec, date: new Date().toISOString().split('T')[0] };
+                await createTrainingProgress(progressData);
+                const newStatus = parseInt(rec.percent) === 100 ? 'PendingEvaluation' : 'InProgress';
+                const assignment = assignments.find(a => a.id === rec.assignmentId);
+                if (assignment) {
+                  await updateAssignment(rec.assignmentId, { ...assignment, progress: rec.percent, status: newStatus });
+                }
                 fetchData();
-              }
-            }}
-            onEditProfile={(s) => openModal('student', 'edit', s)}
-            userRole={user.role}
-            currentUserEmail={user.email}
-          />
-        } />
+              }}
+              onEvaluate={async (assignmentId, score, remarks) => {
+                const assignment = assignments.find(a => a.id === assignmentId);
+                if (assignment) {
+                  await updateAssignment(assignmentId, { ...assignment, status: 'Completed', score, remarks: remarks || assignment.remarks });
+                  fetchData();
+                }
+              }}
+              onEditProfile={(s) => openModal('student', 'edit', s)}
+              userRole={user.role}
+              currentUserEmail={user.email}
+            />
+          } />
 
-        <Route path="/student-profile" element={
-          <StudentDetail
-            student={students.find(s => s.email === user.email)}
-            onBack={() => navigate('/dashboard')}
-            assignments={assignments}
-            academics={academics}
-            progress={progress}
-            trainings={trainings}
-            companies={companies}
-            mentors={mentors}
-            onAddAcademic={async (rec) => { await createAcademicRecord(rec); fetchData(); }}
-            onDeleteAcademic={async (id) => { await deleteAcademicRecord(id); fetchData(); }}
-            onAddProgress={async (rec) => {
-              const progressData = { ...rec, date: new Date().toISOString().split('T')[0] };
-              await createTrainingProgress(progressData);
-              const newStatus = parseInt(rec.percent) === 100 ? 'PendingEvaluation' : 'InProgress';
-              const assignment = assignments.find(a => a.id === rec.assignmentId);
-              if (assignment) {
-                await updateAssignment(rec.assignmentId, { ...assignment, progress: rec.percent, status: newStatus });
-              }
-              fetchData();
-            }}
-            onEvaluate={async (assignmentId, score, remarks) => {
-              const assignment = assignments.find(a => a.id === assignmentId);
-              if (assignment) {
-                await updateAssignment(assignmentId, { ...assignment, status: 'Completed', score, remarks: remarks || assignment.remarks });
+          <Route path="/student-profile" element={
+            <StudentDetail
+              student={students.find(s => s.email === user.email)}
+              onBack={() => navigate('/dashboard')}
+              assignments={assignments}
+              academics={academics}
+              progress={progress}
+              trainings={trainings}
+              companies={companies}
+              mentors={mentors}
+              onAddAcademic={async (rec) => { await createAcademicRecord(rec); fetchData(); }}
+              onDeleteAcademic={async (id) => { await deleteAcademicRecord(id); fetchData(); }}
+              onAddProgress={async (rec) => {
+                const progressData = { ...rec, date: new Date().toISOString().split('T')[0] };
+                await createTrainingProgress(progressData);
+                const newStatus = parseInt(rec.percent) === 100 ? 'PendingEvaluation' : 'InProgress';
+                const assignment = assignments.find(a => a.id === rec.assignmentId);
+                if (assignment) {
+                  await updateAssignment(rec.assignmentId, { ...assignment, progress: rec.percent, status: newStatus });
+                }
                 fetchData();
-              }
-            }}
-            onEditProfile={(s) => openModal('student', 'edit', s)}
-            userRole={user.role}
-            currentUserEmail={user.email}
-          />
-        } />
+              }}
+              onEvaluate={async (assignmentId, score, remarks) => {
+                const assignment = assignments.find(a => a.id === assignmentId);
+                if (assignment) {
+                  await updateAssignment(assignmentId, { ...assignment, status: 'Completed', score, remarks: remarks || assignment.remarks });
+                  fetchData();
+                }
+              }}
+              onEditProfile={(s) => openModal('student', 'edit', s)}
+              userRole={user.role}
+              currentUserEmail={user.email}
+            />
+          } />
 
-        <Route path="/users" element={
-          <GenericList title="User Management" data={users} onAdd={isAdmin ? () => openModal('user') : undefined} onEdit={isAdmin ? (item) => openModal('user', 'edit', item) : undefined} onDelete={isAdmin ? (id) => handleDelete('user', id) : undefined} columns={[{ header: 'Username', field: 'username' }, { header: 'Name', field: 'name' }, { header: 'Role', field: 'role' }, { header: 'Status', render: (u) => <Badge status={u.isActive ? 'Active' : 'Inactive'} /> }]} />
-        } />
+          <Route path="/users" element={
+            <GenericList title="User Management" data={users} onAdd={isAdmin ? () => openModal('user') : undefined} onEdit={isAdmin ? (item) => openModal('user', 'edit', item) : undefined} onDelete={isAdmin ? (id) => handleDelete('user', id) : undefined} columns={[{ header: 'Username', field: 'username' }, { header: 'Name', field: 'name' }, { header: 'Role', field: 'role' }, { header: 'Status', render: (u) => <Badge status={u.isActive ? 'Active' : 'Inactive'} /> }]} />
+          } />
 
-        <Route path="/companies" element={
-          <GenericList title="Companies" data={companies} onAdd={isAdmin ? () => openModal('company') : undefined} onEdit={isAdmin ? (item) => openModal('company', 'edit', item) : undefined} onDelete={isAdmin ? (id) => handleDelete('company', id) : undefined} columns={[{ header: 'Name', field: 'name' }, { header: 'Contact', field: 'contactPerson' }, { header: 'Email', field: 'email' }]} />
-        } />
+          <Route path="/companies" element={
+            <GenericList title="Companies" data={companies} onAdd={isAdmin ? () => openModal('company') : undefined} onEdit={isAdmin ? (item) => openModal('company', 'edit', item) : undefined} onDelete={isAdmin ? (id) => handleDelete('company', id) : undefined} columns={[{ header: 'Name', field: 'name' }, { header: 'Contact', field: 'contactPerson' }, { header: 'Email', field: 'email' }]} />
+          } />
 
-        <Route path="/mentors" element={
-          <GenericList title="Mentors" data={mentors} onAdd={isAdmin ? () => openModal('mentor') : undefined} onEdit={isAdmin ? (item) => openModal('mentor', 'edit', item) : undefined} onDelete={isAdmin ? (id) => handleDelete('mentor', id) : undefined} columns={[{ header: 'Name', field: 'name' }, { header: 'Company', render: (m) => companies.find(c => c.id == m.companyId)?.name }, { header: 'Email', field: 'email' }]} />
-        } />
+          <Route path="/mentors" element={
+            <GenericList title="Mentors" data={mentors} onAdd={isAdmin ? () => openModal('mentor') : undefined} onEdit={isAdmin ? (item) => openModal('mentor', 'edit', item) : undefined} onDelete={isAdmin ? (id) => handleDelete('mentor', id) : undefined} columns={[{ header: 'Name', field: 'name' }, { header: 'Company', render: (m) => companies.find(c => c.id == m.companyId)?.name }, { header: 'Email', field: 'email' }]} />
+          } />
 
-        <Route path="/trainings" element={
-          <GenericList title="Trainings" data={trainings} onAdd={isFacultyOrAdmin ? () => openModal('training') : undefined} onEdit={isFacultyOrAdmin ? (item) => openModal('training', 'edit', item) : undefined} onDelete={isFacultyOrAdmin ? (id) => handleDelete('training', id) : undefined} columns={[{ header: 'Title', field: 'title' }, { header: 'Duration', render: (p) => (p.startDate && p.endDate) ? `${new Date(p.startDate).toLocaleDateString()} - ${new Date(p.endDate).toLocaleDateString()}` : 'Flexible' }, { header: 'Status', render: (p) => <Badge status={p.status} /> }]} />
-        } />
+          <Route path="/trainings" element={
+            <GenericList title="Trainings" data={trainings} onAdd={isFacultyOrAdmin ? () => openModal('training') : undefined} onEdit={isFacultyOrAdmin ? (item) => openModal('training', 'edit', item) : undefined} onDelete={isFacultyOrAdmin ? (id) => handleDelete('training', id) : undefined} columns={[{ header: 'Title', field: 'title' }, { header: 'Duration', render: (p) => (p.startDate && p.endDate) ? `${new Date(p.startDate).toLocaleDateString()} - ${new Date(p.endDate).toLocaleDateString()}` : 'Flexible' }, { header: 'Status', render: (p) => <Badge status={p.status} /> }]} />
+          } />
 
-        <Route path="/assignments/:id" element={<AssignmentDetail user={user} />} />
-        <Route path="/assignments" element={
-          <GenericList
-            title={user.role === ROLES.STUDENT ? "My Assignments" : "All Assignments"}
-            data={user.role === ROLES.STUDENT ? enrichedAssignments.filter(a => a.studentId === user.studentId) : enrichedAssignments}
-            onAdd={isFacultyOrAdmin ? () => openModal('assignment') : undefined}
-            onEdit={isFacultyOrAdmin ? (item) => openModal('assignment', 'edit', item) : undefined}
-            onDelete={isFacultyOrAdmin ? (id) => handleDelete('assignment', id) : undefined}
-            onRowClick={(a) => navigate(`/assignments/${a.id}`)}
-            columns={[
-              ...(user.role !== ROLES.STUDENT ? [{ header: 'Student', field: 'studentName' }] : []),
-              { header: 'Assignment', field: 'trainingTitle' },
-              { header: 'Company', field: 'companyName' },
-              { header: 'Status', render: (a) => <Badge status={a.status} /> },
-              { header: 'Progress', render: (a) => `${a.progress}%` }
-            ]}
-          />
-        } />
+          <Route path="/assignments/:id" element={<AssignmentDetail user={user} />} />
+          <Route path="/assignments" element={
+            <GenericList
+              title={user.role === ROLES.STUDENT ? "My Assignments" : "All Assignments"}
+              data={user.role === ROLES.STUDENT ? enrichedAssignments.filter(a => a.studentId === user.studentId) : enrichedAssignments}
+              onAdd={isFacultyOrAdmin ? () => openModal('assignment') : undefined}
+              onEdit={isFacultyOrAdmin ? (item) => openModal('assignment', 'edit', item) : undefined}
+              onDelete={isFacultyOrAdmin ? (id) => handleDelete('assignment', id) : undefined}
+              onRowClick={(a) => navigate(`/assignments/${a.id}`)}
+              columns={[
+                ...(user.role !== ROLES.STUDENT ? [{ header: 'Student', field: 'studentName' }] : []),
+                { header: 'Assignment', field: 'trainingTitle' },
+                { header: 'Company', field: 'companyName' },
+                { header: 'Status', render: (a) => <Badge status={a.status} /> },
+                { header: 'Progress', render: (a) => `${a.progress}%` }
+              ]}
+            />
+          } />
 
-        <Route path="/admin" element={
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-            <Card className="p-6"><h3 className="font-bold mb-2">Data Seeding</h3><p className="text-sm text-textSecondary">Database is now managed via backend. Use backend seeding tools or Swagger API to manage data.</p></Card>
-            <Card className="p-6">
-              <h3 className="font-bold mb-2">Bulk Import</h3>
-              <label className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center block cursor-pointer hover:bg-gray-50 transition-colors">
-                <input type="file" accept=".csv" className="hidden" onChange={handleImportCSV} />
-                <Upload className="mx-auto text-gray-400 mb-2" />
-                <span className="text-sm text-info">Click to upload CSV</span>
-                <p className="text-xs text-text-text-secondary mt-1">Format: RollNo,FirstName,LastName,Email,Program,Year,Phone</p>
-              </label>
-            </Card>
-          </div>
-        } />
-
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
-
-      {/* Global Modal */}
-      <Modal isOpen={modalConfig.isOpen} onClose={() => setModalConfig({ isOpen: false, type: null, mode: 'create', itemId: null })} title={`${modalConfig.mode === 'create' ? 'Create' : 'Edit'} ${modalConfig.type}`}>
-        {modalConfig.type === 'student' && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="First Name" value={formData.firstName || ''} onChange={e => setFormData({ ...formData, firstName: e.target.value })} disabled={user.role === ROLES.STUDENT} />
-              <Input label="Last Name" value={formData.lastName || ''} onChange={e => setFormData({ ...formData, lastName: e.target.value })} disabled={user.role === ROLES.STUDENT} />
+          <Route path="/admin" element={
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+              <Card className="p-6"><h3 className="font-bold mb-2">Data Seeding</h3><p className="text-sm text-textSecondary">Database is now managed via backend. Use backend seeding tools or Swagger API to manage data.</p></Card>
+              <Card className="p-6">
+                <h3 className="font-bold mb-2">Bulk Import</h3>
+                <label className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center block cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input type="file" accept=".csv" className="hidden" onChange={handleImportCSV} />
+                  <Upload className="mx-auto text-gray-400 mb-2" />
+                  <span className="text-sm text-info">Click to upload CSV</span>
+                  <p className="text-xs text-text-text-secondary mt-1">Format: RollNo,FirstName,LastName,Email,Program,Year,Phone</p>
+                </label>
+              </Card>
             </div>
-            <Input label="Roll No" value={formData.rollNo || ''} onChange={e => setFormData({ ...formData, rollNo: e.target.value })} disabled={user.role === ROLES.STUDENT} />
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="Program" value={formData.program || ''} onChange={e => setFormData({ ...formData, program: e.target.value })} disabled={user.role === ROLES.STUDENT} />
-              <Input label="Year" type="number" value={formData.year || ''} onChange={e => setFormData({ ...formData, year: e.target.value })} disabled={user.role === ROLES.STUDENT} />
-            </div>
-            <Input label="Email" value={formData.email || ''} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-            <Input label="Phone" value={formData.phone || ''} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
-            {user.role !== ROLES.STUDENT && <Checkbox label="Is Active?" checked={formData.isActive !== false} onChange={e => setFormData({ ...formData, isActive: e.target.checked })} />}
-          </div>
-        )}
-        {modalConfig.type === 'user' && (
-          <div className="space-y-3">
-            <Input label="Full Name" value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-            <Input label="Username" value={formData.username || ''} onChange={e => setFormData({ ...formData, username: e.target.value })} />
-            <Input label="Email" value={formData.email || ''} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-            {modalConfig.mode === 'create' && <Input label="Password" type="password" value={formData.password || ''} onChange={e => setFormData({ ...formData, password: e.target.value })} />}
-            <Select label="Role" options={[{ value: ROLES.ADMIN, label: 'Admin' }, { value: ROLES.FACULTY, label: 'Faculty' }, { value: ROLES.STUDENT, label: 'Student' }]} value={formData.role || ROLES.FACULTY} onChange={e => setFormData({ ...formData, role: e.target.value })} />
-            <Checkbox label="Account Active" checked={formData.isActive !== false} onChange={e => setFormData({ ...formData, isActive: e.target.checked })} />
-          </div>
-        )}
-        {modalConfig.type === 'company' && (
-          <div className="space-y-3">
-            <Input label="Company Name" value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-            <Input label="Contact Person" value={formData.contactPerson || ''} onChange={e => setFormData({ ...formData, contactPerson: e.target.value })} />
-            <Input label="Email" value={formData.email || ''} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-          </div>
-        )}
-        {modalConfig.type === 'mentor' && (
-          <div className="space-y-3">
-            <Select label="Company" options={[{ value: '', label: 'Select Company' }, ...companies.map(c => ({ value: c.id, label: c.name }))]} value={formData.companyId || ''} onChange={e => setFormData({ ...formData, companyId: Number(e.target.value) })} />
-            <Input label="Name" value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-            <Input label="Email" value={formData.email || ''} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-          </div>
-        )}
-        {modalConfig.type === 'training' && (
-          <div className="space-y-3">
-            <Input label="Title" value={formData.title || ''} onChange={e => setFormData({ ...formData, title: e.target.value })} />
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="Start Date" type="date" value={formData.startDate || ''} onChange={e => setFormData({ ...formData, startDate: e.target.value })} />
-              <Input label="End Date" type="date" value={formData.endDate || ''} onChange={e => setFormData({ ...formData, endDate: e.target.value })} />
-            </div>
-            <Select label="Status" options={[{ value: 'Upcoming', label: 'Upcoming' }, { value: 'Ongoing', label: 'Ongoing' }, { value: 'Closed', label: 'Closed' }]} value={formData.status || 'Upcoming'} onChange={e => setFormData({ ...formData, status: e.target.value })} />
-          </div>
-        )}
-        {modalConfig.type === 'assignment' && (
-          <div className="space-y-3">
-            <Input label="Title" value={formData.title || ''} onChange={e => setFormData({ ...formData, title: e.target.value })} placeholder="Assignment Title" />
-            <Input label="Description" value={formData.description || ''} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Description" />
-            <Select label="Student" options={[{ value: '', label: 'Select Student' }, ...students.map(s => ({ value: s.id, label: `${s.firstName} ${s.lastName}` }))]} value={formData.studentId || ''} onChange={e => setFormData({ ...formData, studentId: Number(e.target.value) })} />
-            <Select label="Training (Optional)" options={[{ value: '', label: 'Select Training' }, ...trainings.map(p => ({ value: p.id, label: p.title }))]} value={formData.trainingId || ''} onChange={e => setFormData({ ...formData, trainingId: e.target.value ? Number(e.target.value) : null })} />
-            <Select label="Company" options={[{ value: '', label: 'Select Company' }, ...companies.map(c => ({ value: c.id, label: c.name }))]} value={formData.companyId || ''} onChange={e => setFormData({ ...formData, companyId: Number(e.target.value) })} />
-            <Select label="Mentor" options={[{ value: '', label: 'Select Mentor' }, ...mentors.filter(m => !formData.companyId || m.companyId === formData.companyId).map(m => ({ value: m.id, label: m.name }))]} value={formData.mentorId || ''} onChange={e => setFormData({ ...formData, mentorId: Number(e.target.value) })} />
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="Progress (%)" type="number" min="0" max="100" value={formData.progress || 0} onChange={e => setFormData({ ...formData, progress: Number(e.target.value) })} />
-              <Input label="Score" type="number" min="0" max="100" value={formData.score || ''} onChange={e => setFormData({ ...formData, score: e.target.value ? Number(e.target.value) : null })} />
-            </div>
-            <Input label="Remarks" value={formData.remarks || ''} onChange={e => setFormData({ ...formData, remarks: e.target.value })} />
-            {modalConfig.mode === 'edit' && <Select label="Status" options={[{ value: 'Assigned', label: 'Assigned' }, { value: 'InProgress', label: 'InProgress' }, { value: 'PendingEvaluation', label: 'Pending Evaluation' }, { value: 'Completed', label: 'Completed' }, { value: 'Dropped', label: 'Dropped' }]} value={formData.status || 'Assigned'} onChange={e => setFormData({ ...formData, status: e.target.value })} />}
-          </div>
-        )}
-        <Button onClick={handleSave} className="w-full mt-6" isLoading={isLoading}>{modalConfig.mode === 'create' ? 'Create Record' : 'Save Changes'}</Button>
-      </Modal>
+          } />
 
-      <ConfirmDialog
-        isOpen={confirmDialog.isOpen}
-        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
-        onConfirm={confirmDialog.onConfirm}
-        title={confirmDialog.title}
-        message={confirmDialog.message}
-      />
-    </MainLayout>
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+
+        {/* Global Modal */}
+        <Modal isOpen={modalConfig.isOpen} onClose={() => setModalConfig({ isOpen: false, type: null, mode: 'create', itemId: null })} title={`${modalConfig.mode === 'create' ? 'Create' : 'Edit'} ${modalConfig.type}`}>
+          {modalConfig.type === 'student' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <Input label="First Name" value={formData.firstName || ''} onChange={e => setFormData({ ...formData, firstName: e.target.value })} disabled={user.role === ROLES.STUDENT} error={errors.firstName} />
+                <Input label="Last Name" value={formData.lastName || ''} onChange={e => setFormData({ ...formData, lastName: e.target.value })} disabled={user.role === ROLES.STUDENT} error={errors.lastName} />
+              </div>
+              <Input label="Roll No" value={formData.rollNo || ''} onChange={e => setFormData({ ...formData, rollNo: e.target.value })} disabled={user.role === ROLES.STUDENT} error={errors.rollNo} />
+              <div className="grid grid-cols-2 gap-4">
+                <Input label="Program" value={formData.program || ''} onChange={e => setFormData({ ...formData, program: e.target.value })} disabled={user.role === ROLES.STUDENT} error={errors.program} />
+                <Input label="Year" type="number" value={formData.year || ''} onChange={e => setFormData({ ...formData, year: e.target.value })} disabled={user.role === ROLES.STUDENT} error={errors.year} />
+              </div>
+              <Input label="Email" value={formData.email || ''} onChange={e => setFormData({ ...formData, email: e.target.value })} error={errors.email} />
+              <Input label="Phone" value={formData.phone || ''} onChange={e => setFormData({ ...formData, phone: e.target.value })} error={errors.phone} />
+              {user.role !== ROLES.STUDENT && <Checkbox label="Is Active?" checked={formData.isActive !== false} onChange={e => setFormData({ ...formData, isActive: e.target.checked })} />}
+            </div>
+          )}
+          {modalConfig.type === 'user' && (
+            <div className="space-y-3">
+              <Input label="Full Name" value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} error={errors.name} />
+              <Input label="Username" value={formData.username || ''} onChange={e => setFormData({ ...formData, username: e.target.value })} error={errors.username} />
+              <Input label="Email" value={formData.email || ''} onChange={e => setFormData({ ...formData, email: e.target.value })} error={errors.email} />
+              {modalConfig.mode === 'create' && <Input label="Password" type="password" value={formData.password || ''} onChange={e => setFormData({ ...formData, password: e.target.value })} error={errors.password} />}
+              <Select label="Role" options={[{ value: ROLES.ADMIN, label: 'Admin' }, { value: ROLES.FACULTY, label: 'Faculty' }, { value: ROLES.STUDENT, label: 'Student' }]} value={formData.role || ROLES.FACULTY} onChange={e => setFormData({ ...formData, role: e.target.value })} />
+              <Checkbox label="Account Active" checked={formData.isActive !== false} onChange={e => setFormData({ ...formData, isActive: e.target.checked })} />
+            </div>
+          )}
+          {modalConfig.type === 'company' && (
+            <div className="space-y-3">
+              <Input label="Company Name" value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} error={errors.name} />
+              <Input label="Contact Person" value={formData.contactPerson || ''} onChange={e => setFormData({ ...formData, contactPerson: e.target.value })} />
+              <Input label="Email" value={formData.email || ''} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+            </div>
+          )}
+          {modalConfig.type === 'mentor' && (
+            <div className="space-y-3">
+              <Select label="Company" options={[{ value: '', label: 'Select Company' }, ...companies.map(c => ({ value: c.id, label: c.name }))]} value={formData.companyId || ''} onChange={e => setFormData({ ...formData, companyId: Number(e.target.value) })} error={errors.companyId} />
+              <Input label="Name" value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} error={errors.name} />
+              <Input label="Email" value={formData.email || ''} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+            </div>
+          )}
+          {modalConfig.type === 'training' && (
+            <div className="space-y-3">
+              <Input label="Title" value={formData.title || ''} onChange={e => setFormData({ ...formData, title: e.target.value })} error={errors.title} />
+              <div className="grid grid-cols-2 gap-4">
+                <Input label="Start Date" type="date" value={formData.startDate || ''} onChange={e => setFormData({ ...formData, startDate: e.target.value })} />
+                <Input label="End Date" type="date" value={formData.endDate || ''} onChange={e => setFormData({ ...formData, endDate: e.target.value })} error={errors.endDate} />
+              </div>
+              <Select label="Status" options={[{ value: 'Upcoming', label: 'Upcoming' }, { value: 'Ongoing', label: 'Ongoing' }, { value: 'Closed', label: 'Closed' }]} value={formData.status || 'Upcoming'} onChange={e => setFormData({ ...formData, status: e.target.value })} />
+            </div>
+          )}
+          {modalConfig.type === 'assignment' && (
+            <div className="space-y-3">
+              <Input label="Title" value={formData.title || ''} onChange={e => setFormData({ ...formData, title: e.target.value })} placeholder="Assignment Title" error={errors.title} />
+              <Input label="Description" value={formData.description || ''} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Description" />
+              <Select label="Student" options={[{ value: '', label: 'Select Student' }, ...students.map(s => ({ value: s.id, label: `${s.firstName} ${s.lastName}` }))]} value={formData.studentId || ''} onChange={e => setFormData({ ...formData, studentId: Number(e.target.value) })} error={errors.studentId} />
+              <Select label="Training (Optional)" options={[{ value: '', label: 'Select Training' }, ...trainings.map(p => ({ value: p.id, label: p.title }))]} value={formData.trainingId || ''} onChange={e => setFormData({ ...formData, trainingId: e.target.value ? Number(e.target.value) : null })} error={errors.trainingId} />
+              <Select label="Company" options={[{ value: '', label: 'Select Company' }, ...companies.map(c => ({ value: c.id, label: c.name }))]} value={formData.companyId || ''} onChange={e => setFormData({ ...formData, companyId: Number(e.target.value) })} />
+              <Select label="Mentor" options={[{ value: '', label: 'Select Mentor' }, ...mentors.filter(m => !formData.companyId || m.companyId === formData.companyId).map(m => ({ value: m.id, label: m.name }))]} value={formData.mentorId || ''} onChange={e => setFormData({ ...formData, mentorId: Number(e.target.value) })} />
+              <div className="grid grid-cols-2 gap-4">
+                <Input label="Progress (%)" type="number" min="0" max="100" value={formData.progress || 0} onChange={e => setFormData({ ...formData, progress: Number(e.target.value) })} />
+                <Input label="Score" type="number" min="0" max="100" value={formData.score || ''} onChange={e => setFormData({ ...formData, score: e.target.value ? Number(e.target.value) : null })} />
+              </div>
+              <Input label="Remarks" value={formData.remarks || ''} onChange={e => setFormData({ ...formData, remarks: e.target.value })} />
+              {modalConfig.mode === 'edit' && <Select label="Status" options={[{ value: 'Assigned', label: 'Assigned' }, { value: 'InProgress', label: 'InProgress' }, { value: 'PendingEvaluation', label: 'Pending Evaluation' }, { value: 'Completed', label: 'Completed' }, { value: 'Dropped', label: 'Dropped' }]} value={formData.status || 'Assigned'} onChange={e => setFormData({ ...formData, status: e.target.value })} />}
+            </div>
+          )}
+          <Button onClick={handleSave} className="w-full mt-6" isLoading={isLoading}>{modalConfig.mode === 'create' ? 'Create Record' : 'Save Changes'}</Button>
+        </Modal>
+
+        <ConfirmDialog
+          isOpen={confirmDialog.isOpen}
+          onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+          onConfirm={confirmDialog.onConfirm}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+        />
+      </MainLayout>
+    </NotificationProvider>
   );
 }
 

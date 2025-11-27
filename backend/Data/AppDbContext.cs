@@ -15,4 +15,5 @@ public class AppDbContext : DbContext
     public DbSet<Assignment> Assignments { get; set; }
     public DbSet<AcademicRecord> AcademicRecords { get; set; }
     public DbSet<TrainingProgress> TrainingProgress { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
 }

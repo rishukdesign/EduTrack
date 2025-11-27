@@ -45,6 +45,24 @@ public class AssignmentsController : ControllerBase
 
         _context.Assignments.Add(assignment);
         await _context.SaveChangesAsync();
+
+        // Notify Student
+        var studentUser = await _context.Users.FirstOrDefaultAsync(u => u.StudentId == assignment.StudentId);
+        if (studentUser != null)
+        {
+            var notification = new Notification
+            {
+                UserId = studentUser.Id,
+                Title = "New Assignment",
+                Message = $"You have been assigned to: {assignment.Title}",
+                Type = "Info",
+                RelatedEntityId = assignment.Id,
+                RelatedEntityType = "Assignment"
+            };
+            _context.Notifications.Add(notification);
+            await _context.SaveChangesAsync();
+        }
+
         return CreatedAtAction(nameof(GetAssignments), new { id = assignment.Id }, assignment);
     }
 
@@ -93,6 +111,26 @@ public class AssignmentsController : ControllerBase
         try
         {
             await _context.SaveChangesAsync();
+
+            // Notify Student if Graded
+            if (existingAssignment.Score != assignment.Score && assignment.Score.HasValue)
+            {
+                var studentUser = await _context.Users.FirstOrDefaultAsync(u => u.StudentId == assignment.StudentId);
+                if (studentUser != null)
+                {
+                    var notification = new Notification
+                    {
+                        UserId = studentUser.Id,
+                        Title = "Grade Posted",
+                        Message = $"Your assignment '{assignment.Title}' has been graded. Score: {assignment.Score}",
+                        Type = "Success",
+                        RelatedEntityId = assignment.Id,
+                        RelatedEntityType = "Assignment"
+                    };
+                    _context.Notifications.Add(notification);
+                    await _context.SaveChangesAsync();
+                }
+            }
         }
         catch (DbUpdateConcurrencyException)
         {
