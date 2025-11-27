@@ -25,23 +25,52 @@ public class TrainingsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Training>> PostTraining(Training training)
     {
+        // 1. Date Logic: StartDate < EndDate
+        if (training.StartDate.HasValue && training.EndDate.HasValue && training.StartDate > training.EndDate)
+        {
+            return BadRequest("Start Date cannot be after End Date.");
+        }
+
+        // 2. Future Date Limit: StartDate not > 2 years
+        if (training.StartDate.HasValue && training.StartDate > DateTime.Now.AddYears(2))
+        {
+            return BadRequest("Training cannot be scheduled more than 2 years in advance.");
+        }
+
+        // 3. Duplicate Check (Title)
+        if (await _context.Trainings.AnyAsync(t => t.Title == training.Title))
+        {
+            return BadRequest("A training program with this Title already exists.");
+        }
+
         _context.Trainings.Add(training);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetTrainings), new { id = training.Id }, training);
-    }
-
-    [HttpGet("{id}")]
-    public async Task<ActionResult<Training>> GetTraining(int id)
-    {
-        var training = await _context.Trainings.FindAsync(id);
-        if (training == null) return NotFound();
-        return training;
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> PutTraining(int id, Training training)
     {
         if (id != training.Id) return BadRequest();
+
+        // 1. Date Logic: StartDate < EndDate
+        if (training.StartDate.HasValue && training.EndDate.HasValue && training.StartDate > training.EndDate)
+        {
+            return BadRequest("Start Date cannot be after End Date.");
+        }
+
+        // 2. Future Date Limit: StartDate not > 2 years
+        if (training.StartDate.HasValue && training.StartDate > DateTime.Now.AddYears(2))
+        {
+            return BadRequest("Training cannot be scheduled more than 2 years in advance.");
+        }
+
+        // 3. Duplicate Check (Title) - exclude current training
+        if (await _context.Trainings.AnyAsync(t => t.Title == training.Title && t.Id != id))
+        {
+            return BadRequest("A training program with this Title already exists.");
+        }
+
         _context.Entry(training).State = EntityState.Modified;
         try
         {

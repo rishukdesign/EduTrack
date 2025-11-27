@@ -33,6 +33,24 @@ public class StudentsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Student>> PostStudent(Student student)
     {
+        // 1. Duplicate Check (RollNo)
+        if (await _context.Students.AnyAsync(s => s.RollNo == student.RollNo))
+        {
+            return BadRequest("A student with this Roll No already exists.");
+        }
+
+        // 2. Duplicate Check (Email)
+        if (await _context.Students.AnyAsync(s => s.Email == student.Email))
+        {
+            return BadRequest("A student with this Email already exists.");
+        }
+
+        // 3. Phone Validation
+        if (!System.Text.RegularExpressions.Regex.IsMatch(student.Phone, @"^\d{10,15}$"))
+        {
+            return BadRequest("Phone number must be between 10 and 15 digits.");
+        }
+
         _context.Students.Add(student);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetStudent), new { id = student.Id }, student);
@@ -42,6 +60,25 @@ public class StudentsController : ControllerBase
     public async Task<IActionResult> PutStudent(int id, Student student)
     {
         if (id != student.Id) return BadRequest();
+
+        // 1. Duplicate Check (RollNo) - exclude current student
+        if (await _context.Students.AnyAsync(s => s.RollNo == student.RollNo && s.Id != id))
+        {
+            return BadRequest("A student with this Roll No already exists.");
+        }
+
+        // 2. Duplicate Check (Email) - exclude current student
+        if (await _context.Students.AnyAsync(s => s.Email == student.Email && s.Id != id))
+        {
+            return BadRequest("A student with this Email already exists.");
+        }
+
+        // 3. Phone Validation
+        if (!System.Text.RegularExpressions.Regex.IsMatch(student.Phone, @"^\d{10,15}$"))
+        {
+            return BadRequest("Phone number must be between 10 and 15 digits.");
+        }
+
         _context.Entry(student).State = EntityState.Modified;
         try
         {

@@ -39,6 +39,24 @@ public class AcademicRecordsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<AcademicRecord>> PostAcademicRecord(AcademicRecord record)
     {
+        // 1. Score Logic: ObtainedScore <= TotalScore
+        if (record.ObtainedScore > record.TotalScore)
+        {
+            return BadRequest("Obtained Score cannot be greater than Total Score.");
+        }
+
+        // 2. Year Logic: Year not in future
+        if (record.Year > DateTime.Now.Year)
+        {
+            return BadRequest("Academic Year cannot be in the future.");
+        }
+
+        // 3. Duplicate Check: Same Qualification for Same Student
+        if (await _context.AcademicRecords.AnyAsync(r => r.StudentId == record.StudentId && r.Qualification == record.Qualification))
+        {
+            return BadRequest("This qualification has already been added for this student.");
+        }
+
         _context.AcademicRecords.Add(record);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetAcademicRecord), new { id = record.Id }, record);
@@ -48,6 +66,25 @@ public class AcademicRecordsController : ControllerBase
     public async Task<IActionResult> PutAcademicRecord(int id, AcademicRecord record)
     {
         if (id != record.Id) return BadRequest();
+
+        // 1. Score Logic: ObtainedScore <= TotalScore
+        if (record.ObtainedScore > record.TotalScore)
+        {
+            return BadRequest("Obtained Score cannot be greater than Total Score.");
+        }
+
+        // 2. Year Logic: Year not in future
+        if (record.Year > DateTime.Now.Year)
+        {
+            return BadRequest("Academic Year cannot be in the future.");
+        }
+
+        // 3. Duplicate Check: Same Qualification for Same Student (exclude current)
+        if (await _context.AcademicRecords.AnyAsync(r => r.StudentId == record.StudentId && r.Qualification == record.Qualification && r.Id != id))
+        {
+            return BadRequest("This qualification has already been added for this student.");
+        }
+
         _context.Entry(record).State = EntityState.Modified;
         try
         {

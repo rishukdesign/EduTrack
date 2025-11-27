@@ -90,6 +90,12 @@ public class Assignment
     public string Remarks { get; set; } = string.Empty;
     [Range(0, 100, ErrorMessage = "Score must be between 0 and 100")]
     public int? Score { get; set; }
+
+    // Navigation Properties
+    public Student? Student { get; set; }
+    public Training? Training { get; set; }
+    public Company? Company { get; set; }
+    public Mentor? Mentor { get; set; }
 }
 
 public class AcademicRecord

@@ -25,6 +25,13 @@ public class AssignmentsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Assignment>> PostAssignment(Assignment assignment)
     {
+        // 1. Duplicate Assignment Check
+        // Ensure the same Training is not assigned to the same Student more than once
+        if (assignment.TrainingId.HasValue && await _context.Assignments.AnyAsync(a => a.StudentId == assignment.StudentId && a.TrainingId == assignment.TrainingId))
+        {
+            return BadRequest("This training has already been assigned to this student.");
+        }
+
         // If Title is not provided, try to inherit from Training
         if (string.IsNullOrEmpty(assignment.Title) && assignment.TrainingId.HasValue)
         {
@@ -60,6 +67,25 @@ public class AssignmentsController : ControllerBase
         if (id != assignment.Id)
         {
             return BadRequest();
+        }
+
+        // Fetch existing assignment to check progress rules
+        var existingAssignment = await _context.Assignments.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id);
+        if (existingAssignment == null)
+        {
+            return NotFound();
+        }
+
+        // 1. Completion Lock: If already 100%, prevent changes to progress (unless it's an admin override, but for now strict)
+        if (existingAssignment.Progress == 100 && assignment.Progress != 100)
+        {
+            return BadRequest("Cannot modify a completed assignment.");
+        }
+
+        // 2. Regression Check: New Progress cannot be less than Old Progress
+        if (assignment.Progress < existingAssignment.Progress)
+        {
+            return BadRequest($"Progress cannot be regressed. Current progress is {existingAssignment.Progress}%.");
         }
 
         _context.Entry(assignment).State = EntityState.Modified;

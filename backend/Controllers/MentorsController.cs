@@ -25,23 +25,40 @@ public class MentorsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Mentor>> PostMentor(Mentor mentor)
     {
+        // 1. Duplicate Check (Email)
+        if (!string.IsNullOrEmpty(mentor.Email) && await _context.Mentors.AnyAsync(m => m.Email == mentor.Email))
+        {
+            return BadRequest("A mentor with this Email already exists.");
+        }
+
+        // 2. Phone Validation
+        if (!string.IsNullOrEmpty(mentor.Phone) && !System.Text.RegularExpressions.Regex.IsMatch(mentor.Phone, @"^\d{10,15}$"))
+        {
+            return BadRequest("Phone number must be between 10 and 15 digits.");
+        }
+
         _context.Mentors.Add(mentor);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetMentors), new { id = mentor.Id }, mentor);
-    }
-
-    [HttpGet("{id}")]
-    public async Task<ActionResult<Mentor>> GetMentor(int id)
-    {
-        var mentor = await _context.Mentors.FindAsync(id);
-        if (mentor == null) return NotFound();
-        return mentor;
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> PutMentor(int id, Mentor mentor)
     {
         if (id != mentor.Id) return BadRequest();
+
+        // 1. Duplicate Check (Email) - exclude current
+        if (!string.IsNullOrEmpty(mentor.Email) && await _context.Mentors.AnyAsync(m => m.Email == mentor.Email && m.Id != id))
+        {
+            return BadRequest("A mentor with this Email already exists.");
+        }
+
+        // 2. Phone Validation
+        if (!string.IsNullOrEmpty(mentor.Phone) && !System.Text.RegularExpressions.Regex.IsMatch(mentor.Phone, @"^\d{10,15}$"))
+        {
+            return BadRequest("Phone number must be between 10 and 15 digits.");
+        }
+
         _context.Entry(mentor).State = EntityState.Modified;
         try
         {

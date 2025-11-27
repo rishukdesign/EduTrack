@@ -56,4 +56,10 @@ export const createTrainingProgress = (progress) => api.post('/trainingprogress'
 export const updateTrainingProgress = (id, progress) => api.put(`/trainingprogress/${id}`, progress);
 export const deleteTrainingProgress = (id) => api.delete(`/trainingprogress/${id}`);
 
+// Reports
+export const getStudentReport = (filters) => api.get('/reports/students', { params: filters });
+export const getTrainingReport = (filters) => api.get('/reports/trainings', { params: filters });
+export const getStudentProfile = (id) => api.get(`/reports/student-profile/${id}`);
+export const exportReport = (type, format) => `${API_URL}/api/reports/export?type=${type}&format=${format}`;
+
 export default api;
